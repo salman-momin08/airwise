@@ -1,0 +1,31 @@
+name: Deploy Production (Gated)
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "Commit SHA or release tag to deploy"
+        required: true
+        type: string
+      run_migrations:
+        description: "Run Alembic database migrations (requires pre-migration DB snapshot)"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  approval-gate:
+    name: Production Approval Gate
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Record approved release target
+        env:
+          GIT_REF: ${{ inputs.git_ref }}
+          RUN_MIGRATIONS: ${{ inputs.run_migrations }}
+        run: |
+          echo "Approved deployment for ref=${GIT_REF} (migrations=${RUN_MIGRATIONS})"

@@ -1,0 +1,21 @@
+from __future__ import annotations
+
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
+
+from app.api.dependencies import RequestPrincipal, require_authenticated_user
+from app.core.exceptions import AirWiseError
+
+router = APIRouter(prefix="/routines", tags=["routines"])
+
+
+@router.get("")
+async def list_daily_routines(
+    _principal: Annotated[RequestPrincipal, Depends(require_authenticated_user)],
+) -> dict[str, object]:
+    raise AirWiseError(
+        code="NOT_IMPLEMENTED_PHASE_5",
+        message="Interactive Daily Routine Planner persistence is scheduled for Phase 5.",
+        status_code=501,
+    )

@@ -1,0 +1,33 @@
+# Git & Editor
+.git
+.gitignore
+.vscode
+.idea
+
+# Secrets & Local Environment (NEVER copy into image layers)
+.env
+.env.*
+*.pem
+*.key
+*.crt
+
+# Dependencies & Build Outputs
+node_modules/
+.next/
+out/
+.turbo/
+.vercel/
+*.tsbuildinfo
+
+# Placeholders, Tests & Logs
+**/.gitkeep
+tests/
+e2e/
+vitest.config.ts
+playwright.config.ts
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+*.log
+logs/

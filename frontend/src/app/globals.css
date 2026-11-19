@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-primary: #087F8C;
+  --brand-secondary: #2D8A67;
+  --brand-accent: #D5F2E3;
+
+  --background: #F7FAF9;
+  --surface: #FFFFFF;
+
+  --text-primary: #172B32;
+  --text-secondary: #60747C;
+
+  --border: #DCE7E5;
+
+  --radius-card: 16px;
+}
+
+.dark {
+  --brand-primary: #22A8B6;
+  --brand-secondary: #43B58A;
+  --brand-accent: #153530;
+
+  --background: #0D171A;
+  --surface: #132227;
+
+  --text-primary: #ECF5F4;
+  --text-secondary: #9DB4BC;
+
+  --border: #223840;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-feature-settings: "rlig" 1, "calt" 1;
+}

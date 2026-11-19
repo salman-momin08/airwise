@@ -1,0 +1,32 @@
+# Normalize text files to LF across Windows, macOS, Linux, and Docker builds
+* text=auto eol=lf
+
+# Explicitly preserve LF in container, shell, Make, and SQL files
+Makefile text eol=lf
+Dockerfile text eol=lf
+*.sh text eol=lf
+*.sql text eol=lf
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.avif binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary

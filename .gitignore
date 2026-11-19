@@ -1,0 +1,79 @@
+# Operating System
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Environment & Secrets (NEVER commit real credentials)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# Python / FastAPI Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Node.js / Next.js Frontend
+node_modules/
+.next/
+out/
+.turbo/
+.vercel/
+next-env.d.ts
+*.tsbuildinfo
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# Docker & Local Volumes
+postgres_data/
+redis_data/
+
+# IDEs & Editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Logs & Temp
+*.log
+logs/
+tmp/
+temp/
+celerybeat-schedule*
+celerybeat.pid*
+
+# Placeholder & Test Artifacts (Excluded from production main)
+**/.gitkeep
+/docker-compose.test.yml
+/backend/tests/
+/frontend/tests/
+/frontend/e2e/
+/frontend/vitest.config.ts
+/frontend/playwright.config.ts
+
+# Internal AI Agent Instructions & Docs
+/.agents/
+/AGENTS.md
+/docs/

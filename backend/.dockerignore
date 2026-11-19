@@ -1,0 +1,38 @@
+# Git & Editor
+.git
+.gitignore
+.vscode
+.idea
+
+# Secrets & Local Environment (NEVER copy into image layers)
+.env
+.env.*
+*.pem
+*.key
+*.crt
+
+# Python Virtualenvs, Bytecode & Test/Lint Caches
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Runtime, Placeholders & Tests
+**/.gitkeep
+tests/
+*.log
+logs/
+celerybeat-schedule*
+celerybeat.pid

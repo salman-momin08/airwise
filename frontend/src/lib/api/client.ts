@@ -1,0 +1,65 @@
+import type { ApiErrorEnvelope, ApiResponse } from "@/types/api";
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
+
+function readCsrfCookie(): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const match = document.cookie
+    .split("; ")
+    .find((entry) => entry.startsWith("airwise_csrf="));
+  return match ? decodeURIComponent(match.split("=")[1] ?? "") : undefined;
+}
+
+export class ApiClientError extends Error {
+  readonly code: string;
+  readonly requestId: string;
+  readonly status: number;
+
+  constructor(code: string, message: string, requestId: string, status: number) {
+    super(message);
+    this.name = "ApiClientError";
+    this.code = code;
+    this.requestId = requestId;
+    this.status = status;
+  }
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<ApiResponse<T>> {
+  const method = (options.method ?? "GET").toUpperCase();
+  const headers = new Headers(options.headers);
+  if (!headers.has("Content-Type") && options.body) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    const csrf = readCsrfCookie();
+    if (csrf) headers.set("X-CSRF-Token", csrf);
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    method,
+    headers,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    let errorBody: ApiErrorEnvelope | null = null;
+    try {
+      errorBody = (await response.json()) as ApiErrorEnvelope;
+    } catch {
+      // Non-JSON upstream failure
+    }
+    throw new ApiClientError(
+      errorBody?.error.code ?? "HTTP_REQUEST_FAILED",
+      errorBody?.error.message ?? `Request failed with status ${response.status}`,
+      errorBody?.error.request_id ?? "unknown",
+      response.status,
+    );
+  }
+
+  return (await response.json()) as ApiResponse<T>;
+}

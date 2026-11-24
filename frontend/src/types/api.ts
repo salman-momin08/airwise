@@ -2,6 +2,116 @@ export type AQIStandard = "india_naqi" | "us_epa";
 
 export type PollutantCode = "pm25" | "pm10" | "no2" | "so2" | "co" | "o3";
 
+export type LocationLabel = "home" | "workplace" | "school" | "other";
+
+export type LocationPrecision = "city" | "postal_code" | "neighborhood" | "exact";
+
+export type AgeCategory = "youth" | "adult" | "older_adult" | "prefer_not_to_say";
+
+export type BudgetTier = "low" | "moderate" | "flexible";
+
+export type CommuteMode =
+  | "walk"
+  | "bicycle"
+  | "two_wheeler_petrol"
+  | "two_wheeler_ev"
+  | "car_solo_petrol"
+  | "car_ev"
+  | "carpool_3"
+  | "bus"
+  | "metro_rail"
+  | "work_from_home";
+
+export interface AuthPrincipal {
+  user_id: string | null;
+  email?: string | null;
+  display_name?: string | null;
+  role: "guest" | "user" | "moderator" | "admin";
+  is_email_verified: boolean;
+  preferred_aqi_standard: AQIStandard;
+  session_id?: string | null;
+}
+
+export interface SessionRecord {
+  id: string;
+  user_agent: string | null;
+  created_at: string;
+  expires_at: string;
+  is_current: boolean;
+}
+
+export interface TimeWindowSchedule {
+  start_time: string;
+  end_time: string;
+  days: string[];
+}
+
+export interface UserProfile {
+  display_name: string;
+  locale: string;
+  preferred_aqi_standard: AQIStandard;
+  timezone: string;
+  updated_at: string;
+}
+
+export interface UserPreferences {
+  age_category: AgeCategory | null;
+  household_size: number | null;
+  has_vulnerable_members: boolean | null;
+  work_schedule: TimeWindowSchedule | null;
+  school_schedule: TimeWindowSchedule | null;
+  commute_modes: CommuteMode[];
+  cooking_type: string | null;
+  ventilation_type: string | null;
+  has_hepa_purifier: boolean;
+  budget_tier: BudgetTier | null;
+  sustainability_goals: string[];
+  save_chat_history: boolean;
+  consent_updated_at: string | null;
+}
+
+export interface UserMe {
+  id: string;
+  email: string;
+  role: string;
+  is_email_verified: boolean;
+  created_at: string;
+  profile: UserProfile;
+  preferences: UserPreferences;
+}
+
+export interface SavedLocation {
+  id: string;
+  label: LocationLabel;
+  display_name: string;
+  city: string;
+  state_region: string | null;
+  country_code: string;
+  postal_code: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  location_precision: LocationPrecision;
+  timezone: string;
+  is_primary: boolean;
+  created_at: string;
+}
+
+export interface GazetteerMatch {
+  city: string;
+  state_region: string;
+  country_code: string;
+  postal_prefix: string;
+  timezone: string;
+}
+
+export interface AccountExportBundle {
+  exported_at: string;
+  schema_version: string;
+  account: UserMe;
+  saved_locations: SavedLocation[];
+  active_sessions_count: number;
+}
+
 export interface ResponseMeta {
   request_id: string;
   timestamp: string;

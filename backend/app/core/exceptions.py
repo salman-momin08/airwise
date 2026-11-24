@@ -24,8 +24,23 @@ class AuthorizationError(AirWiseError):
     def __init__(
         self,
         message: str = "You do not have permission to access this resource.",
+        code: str = "AUTH_FORBIDDEN",
     ) -> None:
-        super().__init__(code="AUTH_FORBIDDEN", message=message, status_code=403)
+        super().__init__(code=code, message=message, status_code=403)
+
+
+class ConflictError(AirWiseError):
+    def __init__(self, message: str = "Resource conflict.") -> None:
+        super().__init__(code="CONFLICT", message=message, status_code=409)
+
+
+class RateLimitExceededError(AirWiseError):
+    def __init__(
+        self,
+        message: str = "Too many requests. Please wait before trying again.",
+        code: str = "RATE_LIMIT_EXCEEDED",
+    ) -> None:
+        super().__init__(code=code, message=message, status_code=429)
 
 
 class ResourceNotFoundError(AirWiseError):

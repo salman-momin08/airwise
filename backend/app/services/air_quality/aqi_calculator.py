@@ -151,8 +151,8 @@ US_EPA_BREAKPOINTS: dict[PollutantCode, tuple[str, int, tuple[BreakpointBand, ..
 def _truncate_decimals(value: float, decimals: int) -> float:
     if decimals <= 0:
         return float(math.floor(value))
-    factor = 10**decimals
-    return math.floor(value * factor + 1e-9) / factor
+    factor = float(10**decimals)
+    return float(math.floor(value * factor + 1e-9) / factor)
 
 
 def _interpolate_band(conc: float, bands: tuple[BreakpointBand, ...]) -> tuple[int, str]:

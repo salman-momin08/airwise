@@ -13,6 +13,15 @@ export default function LandingPage() {
           </p>
         </div>
         <nav aria-label="Primary navigation" className="flex items-center gap-4 text-sm font-medium">
+          <Link href="/air-quality" className="text-text-primary hover:text-brand-primary">
+            Public AQI
+          </Link>
+          <Link href="/login" className="text-text-primary hover:text-brand-primary">
+            Sign In
+          </Link>
+          <Link href="/register" className="rounded-lg border border-brand-primary px-4 py-2 text-brand-primary">
+            Create Account
+          </Link>
           <Link href="/dashboard" className="rounded-lg bg-brand-primary px-4 py-2 text-white">
             Open Dashboard
           </Link>

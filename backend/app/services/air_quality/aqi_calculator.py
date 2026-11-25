@@ -119,7 +119,7 @@ INDIA_NAQI_BREAKPOINTS: dict[PollutantCode, tuple[str, tuple[BreakpointBand, ...
     ),
 }
 
-# US EPA AQI (2024 Revised PM2.5 Breakpoints)
+# US EPA AQI (2024 Revised PM2.5 Breakpoints; canonical EPA units per pollutant)
 US_EPA_BREAKPOINTS: dict[PollutantCode, tuple[str, int, tuple[BreakpointBand, ...]]] = {
     PollutantCode.PM25: (
         "ug/m3",
@@ -145,7 +145,124 @@ US_EPA_BREAKPOINTS: dict[PollutantCode, tuple[str, int, tuple[BreakpointBand, ..
             BreakpointBand(425, 604, 301, 500, "Hazardous"),
         ),
     ),
+    PollutantCode.O3: (
+        "ppm",
+        3,
+        (
+            BreakpointBand(0.000, 0.054, 0, 50, "Good"),
+            BreakpointBand(0.055, 0.070, 51, 100, "Moderate"),
+            BreakpointBand(0.071, 0.085, 101, 150, "Unhealthy for Sensitive Groups"),
+            BreakpointBand(0.086, 0.105, 151, 200, "Unhealthy"),
+            BreakpointBand(0.106, 0.200, 201, 300, "Very Unhealthy"),
+            BreakpointBand(0.201, 0.604, 301, 500, "Hazardous"),
+        ),
+    ),
+    PollutantCode.CO: (
+        "ppm",
+        1,
+        (
+            BreakpointBand(0.0, 4.4, 0, 50, "Good"),
+            BreakpointBand(4.5, 9.4, 51, 100, "Moderate"),
+            BreakpointBand(9.5, 12.4, 101, 150, "Unhealthy for Sensitive Groups"),
+            BreakpointBand(12.5, 15.4, 151, 200, "Unhealthy"),
+            BreakpointBand(15.5, 30.4, 201, 300, "Very Unhealthy"),
+            BreakpointBand(30.5, 50.4, 301, 500, "Hazardous"),
+        ),
+    ),
+    PollutantCode.SO2: (
+        "ppb",
+        0,
+        (
+            BreakpointBand(0, 35, 0, 50, "Good"),
+            BreakpointBand(36, 75, 51, 100, "Moderate"),
+            BreakpointBand(76, 185, 101, 150, "Unhealthy for Sensitive Groups"),
+            BreakpointBand(186, 304, 151, 200, "Unhealthy"),
+            BreakpointBand(305, 604, 201, 300, "Very Unhealthy"),
+            BreakpointBand(605, 1004, 301, 500, "Hazardous"),
+        ),
+    ),
+    PollutantCode.NO2: (
+        "ppb",
+        0,
+        (
+            BreakpointBand(0, 53, 0, 50, "Good"),
+            BreakpointBand(54, 100, 51, 100, "Moderate"),
+            BreakpointBand(101, 360, 101, 150, "Unhealthy for Sensitive Groups"),
+            BreakpointBand(361, 649, 151, 200, "Unhealthy"),
+            BreakpointBand(650, 1249, 201, 300, "Very Unhealthy"),
+            BreakpointBand(1250, 2049, 301, 500, "Hazardous"),
+        ),
+    ),
 }
+
+# Standard reference conditions for gaseous unit conversions: 25°C (298.15 K), 1 atm -> 24.45 L/mol
+MOLAR_VOLUME_25C_1ATM = 24.45
+MOLECULAR_WEIGHTS_G_MOL: dict[PollutantCode, float] = {
+    PollutantCode.NO2: 46.0055,
+    PollutantCode.SO2: 64.066,
+    PollutantCode.CO: 28.01,
+    PollutantCode.O3: 48.00,
+}
+
+
+def convert_gas_unit_for_standard(
+    pollutant: PollutantCode,
+    concentration: float,
+    unit: str,
+    standard: AQIStandard,
+) -> tuple[float, str] | None:
+    """Explicitly convert gaseous pollutant units using 25°C, 1 atm molar volume (24.45 L/mol).
+
+    Particulate matter (PM2.5, PM10) cannot be converted between mass and mixing ratios;
+    returns None if units are incompatible.
+    """
+    normalized_unit = unit.strip().lower().replace("µg/m³", "ug/m3").replace("µg/m3", "ug/m3")
+    if pollutant in {PollutantCode.PM25, PollutantCode.PM10}:
+        return (concentration, "ug/m3") if normalized_unit == "ug/m3" else None
+
+    mw = MOLECULAR_WEIGHTS_G_MOL.get(pollutant)
+    if mw is None:
+        return None
+
+    if standard == AQIStandard.INDIA_NAQI:
+        if pollutant == PollutantCode.CO:
+            if normalized_unit == "mg/m3":
+                return (concentration, "mg/m3")
+            if normalized_unit == "ug/m3":
+                return (concentration / 1000.0, "mg/m3")
+            if normalized_unit == "ppm":
+                return ((concentration * mw) / MOLAR_VOLUME_25C_1ATM, "mg/m3")
+            if normalized_unit == "ppb":
+                return ((concentration * mw) / (MOLAR_VOLUME_25C_1ATM * 1000.0), "mg/m3")
+            return None
+
+        if normalized_unit == "ug/m3":
+            return (concentration, "ug/m3")
+        if normalized_unit == "ppb":
+            return ((concentration * mw) / MOLAR_VOLUME_25C_1ATM, "ug/m3")
+        if normalized_unit == "ppm":
+            return ((concentration * 1000.0 * mw) / MOLAR_VOLUME_25C_1ATM, "ug/m3")
+        return None
+
+    # US EPA gaseous targets: O3 & CO in ppm; NO2 & SO2 in ppb
+    if pollutant in {PollutantCode.O3, PollutantCode.CO}:
+        if normalized_unit == "ppm":
+            return (concentration, "ppm")
+        if normalized_unit == "ppb":
+            return (concentration / 1000.0, "ppm")
+        if normalized_unit == "mg/m3":
+            return ((concentration * MOLAR_VOLUME_25C_1ATM) / mw, "ppm")
+        if normalized_unit == "ug/m3":
+            return ((concentration * MOLAR_VOLUME_25C_1ATM) / (mw * 1000.0), "ppm")
+        return None
+
+    if normalized_unit == "ppb":
+        return (concentration, "ppb")
+    if normalized_unit == "ppm":
+        return (concentration * 1000.0, "ppb")
+    if normalized_unit == "ug/m3":
+        return ((concentration * MOLAR_VOLUME_25C_1ATM) / mw, "ppb")
+    return None
 
 
 def _truncate_decimals(value: float, decimals: int) -> float:

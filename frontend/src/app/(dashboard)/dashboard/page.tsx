@@ -21,9 +21,14 @@ export default function DashboardOverviewPage() {
             Select a city or saved location to inspect verified air quality and personalized guidance.
           </p>
         </div>
-        <Link href="/" className="text-sm font-medium text-brand-primary underline">
-          Back to Overview
-        </Link>
+        <div className="flex items-center gap-4 text-sm font-medium">
+          <Link href="/dashboard/settings" className="text-brand-primary underline">
+            Account &amp; Locations
+          </Link>
+          <Link href="/" className="text-brand-primary underline">
+            Back to Overview
+          </Link>
+        </div>
       </div>
 
       <section aria-label="Dashboard modules" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">

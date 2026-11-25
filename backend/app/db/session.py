@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import (
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 
@@ -15,16 +17,39 @@ _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
+def _use_serverless_null_pool() -> bool:
+    settings = get_settings()
+    return (
+        settings.database_serverless_pool
+        or os.getenv("VERCEL") == "1"
+        or settings.database_url.startswith("sqlite")
+    )
+
+
 def get_engine() -> AsyncEngine:
     global _engine
     if _engine is None:
         settings = get_settings()
-        _engine = create_async_engine(
-            settings.database_url,
-            pool_pre_ping=True,
-            echo=settings.debug,
-        )
+        if _use_serverless_null_pool():
+            _engine = create_async_engine(
+                settings.database_url,
+                poolclass=NullPool,
+                echo=settings.debug,
+            )
+        else:
+            _engine = create_async_engine(
+                settings.database_url,
+                pool_pre_ping=True,
+                echo=settings.debug,
+            )
     return _engine
+
+
+def reset_db_engine() -> None:
+    """Reset cached engine and session factory (used in isolated test fixtures)."""
+    global _engine, _session_factory
+    _engine = None
+    _session_factory = None
 
 
 def get_session_factory() -> async_sessionmaker[AsyncSession]:

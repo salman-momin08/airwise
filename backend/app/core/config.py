@@ -43,11 +43,18 @@ class Settings(BaseSettings):
     geocoding_provider: Literal["openweather", "mapbox"] = "openweather"
     geocoding_api_key: str = ""
 
-    email_provider: Literal["console", "resend", "ses"] = "console"
+    email_provider: Literal["console", "resend"] = "console"
     email_api_key: str = ""
+    email_from_address: str = "no-reply@airwise.app"
+
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+    google_oauth_redirect_uri: str = "http://localhost:8000/api/v1/auth/oauth/google/callback"
 
     frontend_url: str = "http://localhost:3000"
     backend_url: str = "http://localhost:8000"
+    database_serverless_pool: bool = False
+    cron_secret: str = ""
 
     otel_service_name: str = "airwise-backend"
     metrics_internal_token: str = ""

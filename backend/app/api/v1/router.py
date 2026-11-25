@@ -13,6 +13,7 @@ from app.api.v1 import (
     locations,
     recommendations,
     routines,
+    system_cron,
     users,
     weather,
 )
@@ -30,3 +31,4 @@ api_v1_router.include_router(impact.router)
 api_v1_router.include_router(alerts.router)
 api_v1_router.include_router(community.router)
 api_v1_router.include_router(admin.router)
+api_v1_router.include_router(system_cron.router)

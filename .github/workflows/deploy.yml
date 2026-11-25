@@ -1,4 +1,4 @@
-name: Deploy Production (Gated)
+name: Deploy Production to Vercel (Gated)
 
 on:
   workflow_dispatch:
@@ -8,24 +8,59 @@ on:
         required: true
         type: string
       run_migrations:
-        description: "Run Alembic database migrations (requires pre-migration DB snapshot)"
+        description: "Run Alembic database migrations against Neon/Supabase Postgres before Vercel promotion"
         required: true
         type: boolean
         default: false
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  approval-gate:
-    name: Production Approval Gate
+  deploy-vercel:
+    name: Production Approval & Vercel Deploy
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Record approved release target
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Set up Python 3.12 (for Alembic migrations)
+        if: ${{ inputs.run_migrations }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Run Alembic database migrations
+        if: ${{ inputs.run_migrations }}
+        working-directory: backend
         env:
-          GIT_REF: ${{ inputs.git_ref }}
-          RUN_MIGRATIONS: ${{ inputs.run_migrations }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          AUTH_SECRET_KEY: ${{ secrets.AUTH_SECRET_KEY }}
         run: |
-          echo "Approved deployment for ref=${GIT_REF} (migrations=${RUN_MIGRATIONS})"
+          python -m pip install --upgrade pip
+          pip install -e .
+          alembic upgrade head
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Vercel CLI & Deploy Production Bundle
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "${VERCEL_TOKEN}" ]; then
+            echo "VERCEL_TOKEN secret not yet configured; skipping CLI push (GitHub-connected Vercel auto-deploy remains active)."
+            exit 0
+          fi
+          npm install --global vercel@latest
+          vercel pull --yes --environment=production --token="${VERCEL_TOKEN}"
+          vercel build --prod --token="${VERCEL_TOKEN}"
+          vercel deploy --prebuilt --prod --token="${VERCEL_TOKEN}"

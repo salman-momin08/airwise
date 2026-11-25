@@ -51,11 +51,13 @@ flowchart TB
 airwise/
 ├── frontend/                       # Next.js (App Router) + Strict TypeScript + Tailwind + shadcn/ui
 ├── backend/                        # Python 3.12+ FastAPI + SQLAlchemy 2.x Async + Celery + GenAI Engine
-├── infrastructure/                 # Docker init scripts, Prometheus/OTel monitoring, cloud deployment
+├── api/                            # Vercel Python Serverless entrypoint mounting backend FastAPI app
+├── infrastructure/                 # Docker init scripts, Prometheus/OTel monitoring, Vercel deployment docs
 │   ├── docker/
 │   ├── monitoring/
 │   └── deployment/
-├── .github/workflows/              # CI validation & gated CD pipelines
+├── .github/workflows/              # CI validation & gated Vercel CD pipelines
+├── vercel.json                     # Zero-cost Vercel Next.js + FastAPI rewrite & Cron configuration
 ├── docker-compose.yml              # Multi-service stack (frontend, backend, worker, scheduler, postgres, redis)
 └── Makefile                        # Developer & operations workflow commands
 ```
@@ -96,6 +98,12 @@ npm run dev
 ```
 
 > **Development Fixtures Notice:** When `AIR_QUALITY_API_KEY` or `OPENAI_API_KEY` are not configured, adapters must explicitly set `AIR_QUALITY_PROVIDER=fixture` in development, labeling all fixture payloads with `is_development_fixture: true` so synthetic test data is never mistaken for live environmental measurements.
+
+---
+
+## Zero-Cost Cloud Deployment (Vercel Free Tier)
+
+AirWise AI deploys at **$0/month** on **Vercel** (`vercel.json` + `api/index.py`) with same-origin `/api/v1/*` rewrites, **Vercel Cron** daily maintenance, free managed **Neon/Supabase PostgreSQL 16 (PostGIS + pgvector)**, and **Upstash Serverless Redis**. See [`docs/deployment.md`](./docs/deployment.md) and [`infrastructure/deployment/README.md`](./infrastructure/deployment/README.md) for setup instructions.
 
 ---
 

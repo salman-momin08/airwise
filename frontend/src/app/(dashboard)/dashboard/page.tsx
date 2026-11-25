@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DashboardAqiSnapshot } from "@/features/air-quality/dashboard-aqi-snapshot";
 
 const DASHBOARD_MODULES = [
   { title: "Current Air Quality", href: "/dashboard/air-quality", summary: "Standard-isolated AQI, pollutant breakdown, and data freshness provenance." },
@@ -31,12 +32,18 @@ export default function DashboardOverviewPage() {
         </div>
       </div>
 
+      <DashboardAqiSnapshot />
+
       <section aria-label="Dashboard modules" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {DASHBOARD_MODULES.map((mod) => (
-          <article key={mod.href} className="rounded-card border border-border bg-surface p-5 shadow-sm">
+          <Link
+            key={mod.href}
+            href={mod.href}
+            className="rounded-card border border-border bg-surface p-5 shadow-sm transition-colors hover:border-brand-primary"
+          >
             <h2 className="text-base font-semibold text-text-primary">{mod.title}</h2>
             <p className="mt-2 text-sm text-text-secondary">{mod.summary}</p>
-          </article>
+          </Link>
         ))}
       </section>
     </main>

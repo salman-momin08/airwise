@@ -9,8 +9,19 @@ from app.models.identity import (
     UserProfile,
     UserSession,
 )
+from app.models.telemetry import (
+    AirQualityForecast,
+    AirQualityMeasurement,
+    AirQualitySource,
+    AirQualityStation,
+    WeatherObservation,
+)
 
 __all__ = [
+    "AirQualityForecast",
+    "AirQualityMeasurement",
+    "AirQualitySource",
+    "AirQualityStation",
     "AuditLog",
     "SavedLocation",
     "User",
@@ -18,4 +29,5 @@ __all__ = [
     "UserPreference",
     "UserProfile",
     "UserSession",
+    "WeatherObservation",
 ]

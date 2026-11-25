@@ -161,6 +161,113 @@ export interface CurrentAirQuality {
   unavailable_reason: string | null;
 }
 
+export type HistoryPeriod = "24h" | "7d" | "30d";
+
+export interface HistoricalAirQualityPoint {
+  timestamp: string;
+  aqi: number | null;
+  category: string | null;
+  pm25_ug_m3: number | null;
+  pm10_ug_m3: number | null;
+  dominant_pollutant: PollutantCode | null;
+}
+
+export interface HistoricalAirQuality {
+  city: string;
+  standard: AQIStandard;
+  period: HistoryPeriod;
+  provider: string;
+  source_type: "station" | "model" | "unavailable";
+  is_stale: boolean;
+  is_development_fixture: boolean;
+  series: HistoricalAirQualityPoint[];
+}
+
+export interface ForecastPoint {
+  forecast_for: string;
+  aqi: number | null;
+  category: string | null;
+  dominant_pollutant: PollutantCode | null;
+  pm25_ug_m3: number | null;
+  pm10_ug_m3: number | null;
+  confidence_level: "low" | "medium" | "high";
+  safer_outdoor_window: boolean;
+}
+
+export interface AirQualityForecast {
+  city: string;
+  standard: AQIStandard;
+  generated_at: string;
+  provider: string;
+  source_type: "station" | "model" | "unavailable";
+  is_stale: boolean;
+  is_development_fixture: boolean;
+  points: ForecastPoint[];
+}
+
+export interface MonitoringStation {
+  station_id: string;
+  name: string;
+  city: string;
+  state_region: string | null;
+  country_code: string;
+  latitude: number;
+  longitude: number;
+  distance_km: number | null;
+  provider: string;
+  source_type: "station" | "model";
+  standard: AQIStandard;
+  aqi: number | null;
+  category: string | null;
+  dominant_pollutant: PollutantCode | null;
+  measured_at: string | null;
+  is_stale: boolean;
+  is_development_fixture: boolean;
+}
+
+export interface StationGeoJsonFeature {
+  type: "Feature";
+  geometry: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+  properties: {
+    station_id: string;
+    name: string;
+    city: string;
+    provider: string;
+    source_type: "station" | "model";
+    standard: AQIStandard;
+    aqi: number | null;
+    category: string | null;
+    dominant_pollutant: PollutantCode | null;
+    measured_at: string | null;
+    is_stale: boolean;
+    is_development_fixture: boolean;
+  };
+}
+
+export interface StationGeoJsonCollection {
+  type: "FeatureCollection";
+  standard: AQIStandard;
+  is_development_fixture: boolean;
+  features: StationGeoJsonFeature[];
+}
+
+export interface CurrentWeather {
+  city: string;
+  temperature_c: number;
+  humidity_pct: number;
+  wind_speed_mps: number;
+  wind_direction_deg: number | null;
+  inversion_risk_flag: boolean | null;
+  dispersion_note: string;
+  observed_at: string;
+  provider: string;
+  is_stale: boolean;
+  is_development_fixture: boolean;
+}
+
 export interface ImpactEstimate {
   metric: string;
   baseline_value: number;

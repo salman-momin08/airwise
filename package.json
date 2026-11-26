@@ -1,0 +1,12 @@
+{
+  "name": "airwise-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AirWise AI — Monorepo Root Manifest for Vercel Next.js + FastAPI Deployment",
+  "scripts": {
+    "build": "cd frontend && npm run build"
+  },
+  "dependencies": {
+    "next": "15.1.3"
+  }
+}

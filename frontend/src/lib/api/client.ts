@@ -26,10 +26,10 @@ export class ApiClientError extends Error {
   }
 }
 
-export async function apiRequest<T>(
+export async function apiFetch(
   path: string,
   options: RequestInit = {},
-): Promise<ApiResponse<T>> {
+): Promise<Response> {
   const method = (options.method ?? "GET").toUpperCase();
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type") && options.body) {
@@ -62,5 +62,13 @@ export async function apiRequest<T>(
     );
   }
 
+  return response;
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<ApiResponse<T>> {
+  const response = await apiFetch(path, options);
   return (await response.json()) as ApiResponse<T>;
 }

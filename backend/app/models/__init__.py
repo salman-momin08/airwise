@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from app.models.assistant import (
+    AIGenerationMetadata,
+    ChatConversation,
+    ChatMessage,
+    KnowledgeChunk,
+    KnowledgeDocument,
+    KnowledgeIngestionJob,
+)
 from app.models.identity import (
     AuditLog,
     SavedLocation,
@@ -18,6 +26,12 @@ from app.models.telemetry import (
 )
 
 __all__ = [
+    "AIGenerationMetadata",
+    "ChatConversation",
+    "ChatMessage",
+    "KnowledgeChunk",
+    "KnowledgeDocument",
+    "KnowledgeIngestionJob",
     "AirQualityForecast",
     "AirQualityMeasurement",
     "AirQualitySource",

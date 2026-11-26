@@ -29,9 +29,13 @@ class Settings(BaseSettings):
     auth_cookie_secure: bool = False
     auth_session_ttl_seconds: int = 86400
 
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
-    embedding_model: str = "text-embedding-3-small"
+    llm_provider: Literal["gemini"] = "gemini"
+    gemini_api_key: str = Field(default="", repr=False)
+    gemini_model: str = Field(default="gemini-2.5-flash", pattern=r"^[a-zA-Z0-9._-]+$")
+    embedding_model: str = Field(default="gemini-embedding-001", pattern=r"^[a-zA-Z0-9._-]+$")
+    ai_max_output_tokens: int = Field(default=2048, ge=256, le=4096)
+    ai_daily_token_budget: int = Field(default=200000, ge=1000)
+    ai_requests_per_minute: int = Field(default=10, ge=1, le=60)
 
     air_quality_provider: Literal["openaq", "openweather", "cpcb", "fixture"] = "fixture"
     air_quality_fallback_provider: Literal["openaq", "openweather", "none"] = "openweather"

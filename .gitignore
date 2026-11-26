@@ -64,16 +64,9 @@ temp/
 celerybeat-schedule*
 celerybeat.pid*
 
-# Placeholder & Test Artifacts (Excluded from production main)
+# Placeholder files (test sources and configuration are versioned)
 **/.gitkeep
-/docker-compose.test.yml
-/backend/tests/
-/frontend/tests/
-/frontend/e2e/
-/frontend/vitest.config.ts
-/frontend/playwright.config.ts
 
-# Internal AI Agent Instructions & Docs
+# Internal AI Agent Instructions
 /.agents/
 /AGENTS.md
-/docs/

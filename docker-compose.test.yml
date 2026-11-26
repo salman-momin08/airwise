@@ -1,0 +1,46 @@
+name: airwise-ai-test
+
+services:
+  postgres-test:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: airwise_test
+      POSTGRES_PASSWORD: airwise_test_password
+      POSTGRES_DB: airwise_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./infrastructure/docker/postgres/init-extensions.sql:/docker-entrypoint-initdb.d/01-init-extensions.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airwise_test -d airwise_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis-test:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: test
+    command: ["pytest", "-v", "--maxfail=1"]
+    environment:
+      APP_ENV: test
+      DEBUG: "false"
+      DATABASE_URL: postgresql+asyncpg://airwise_test:airwise_test_password@postgres-test:5432/airwise_test
+      REDIS_URL: redis://redis-test:6379/1
+      AUTH_SECRET_KEY: test-secret-key-at-least-thirty-two-bytes-long
+      AIR_QUALITY_PROVIDER: fixture
+      WEATHER_PROVIDER: fixture
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy

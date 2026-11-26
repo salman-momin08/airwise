@@ -10,6 +10,9 @@ URGENT_SYMPTOM_KEYWORDS: tuple[str, ...] = (
     "cannot breathe",
     "difficulty breathing",
     "severe shortness of breath",
+    "severe breathing difficulty",
+    "struggling to breathe",
+    "severe breathing distress",
     "blue lips",
     "fainting",
 )

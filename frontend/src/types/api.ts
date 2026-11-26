@@ -110,6 +110,14 @@ export interface AccountExportBundle {
   account: UserMe;
   saved_locations: SavedLocation[];
   active_sessions_count: number;
+  chat_history: Array<{
+    conversation_id: string;
+    id: string;
+    role: "user" | "assistant";
+    content: string;
+    structured_response: unknown;
+    created_at: string;
+  }>;
 }
 
 export interface ResponseMeta {

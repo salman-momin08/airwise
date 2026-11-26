@@ -13,6 +13,7 @@ celery_app = Celery(
     backend=settings.redis_url,
     include=[
         "app.workers.ingestion_tasks",
+        "app.workers.knowledge_tasks",
         "app.workers.alert_tasks",
         "app.workers.maintenance_tasks",
     ],

@@ -253,3 +253,4 @@ class AccountExportData(BaseModel):
     account: UserMeData
     saved_locations: list[SavedLocationData]
     active_sessions_count: int
+    chat_history: list[dict[str, object]] = Field(default_factory=list)

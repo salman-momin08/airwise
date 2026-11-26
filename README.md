@@ -97,7 +97,15 @@ npm install
 npm run dev
 ```
 
-> **Development Fixtures Notice:** When `AIR_QUALITY_API_KEY` or `OPENAI_API_KEY` are not configured, adapters must explicitly set `AIR_QUALITY_PROVIDER=fixture` in development, labeling all fixture payloads with `is_development_fixture: true` so synthetic test data is never mistaken for live environmental measurements.
+> **Development Fixtures Notice:** Without environmental-provider credentials, explicitly select `AIR_QUALITY_PROVIDER=fixture` in development. All synthetic readings carry `is_development_fixture: true`. Without `GEMINI_API_KEY`, the assistant reports a safe-guidance fallback; it never simulates a model response.
+
+### Gemini Assistant (Phase 4)
+
+Set backend-only `GEMINI_API_KEY`, run `alembic upgrade head`, then
+`python -m scripts.ingest_knowledge` from `backend/` to embed the reviewed source summaries.
+PostgreSQL with pgvector and Redis are required for live hybrid retrieval and daily AI budgets.
+Sign in and open `/dashboard/assistant`; sending a question requires explicit Gemini consent.
+See [the development guide](./docs/development.md#5-gemini-assistant-and-trusted-knowledge) for details.
 
 ---
 

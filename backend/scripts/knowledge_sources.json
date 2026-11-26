@@ -1,0 +1,27 @@
+[
+  {
+    "title": "Ambient air pollution and health: AirWise editorial summary",
+    "publisher": "World Health Organization",
+    "source_url": "https://www.who.int/news-room/fact-sheets/detail/ambient-(outdoor)-air-quality-and-health",
+    "jurisdiction": "global",
+    "publication_date": "2024-10-24T00:00:00Z",
+    "last_reviewed_date": "2026-11-26T00:00:00Z",
+    "content": "Editorial summary, not a quotation: Outdoor air pollution is associated with respiratory and cardiovascular harm. Fine particulate matter is a major health concern. Reducing exposure and reducing emissions are related but distinct goals. Individual protective actions do not establish a measurable reduction in city-wide air pollution. Local conditions must come from verified environmental measurements, not general health guidance."
+  },
+  {
+    "title": "Home air cleaners: AirWise editorial summary",
+    "publisher": "US Environmental Protection Agency",
+    "source_url": "https://www.epa.gov/indoor-air-quality-iaq/guide-air-cleaners-home",
+    "jurisdiction": "US",
+    "last_reviewed_date": "2026-11-26T00:00:00Z",
+    "content": "Editorial summary, not a quotation: Indoor particle reduction starts with controlling pollution sources. Properly sized portable air cleaners and compatible HVAC filters can supplement source control and suitable ventilation. Select filtration appropriate to the room and maintain filters. Avoid devices that intentionally generate ozone. Filtration does not remove every pollutant or eliminate all health risks. Without indoor sensor measurements, indoor air quality remains unmeasured; outdoor readings do not establish indoor concentrations."
+  },
+  {
+    "title": "Air pollution health advisory: AirWise editorial summary",
+    "publisher": "National Centre for Disease Control, Ministry of Health and Family Welfare, India",
+    "source_url": "https://ncdc.mohfw.gov.in/uploads/pdf/air2.pdf",
+    "jurisdiction": "IN",
+    "last_reviewed_date": "2026-11-26T00:00:00Z",
+    "content": "Editorial summary, not a quotation: Children, older adults and people with pre-existing respiratory or cardiovascular conditions need extra caution during polluted conditions. During poor to severe air pollution, reduce outdoor physical activity and avoid heavily polluted locations such as busy roads. Schools should limit outdoor activities when pollution is high. Avoid ozone-generating air cleaners. Seek professional medical help for worsening respiratory or cardiovascular symptoms; severe breathing difficulty or chest pain requires urgent attention."
+  }
+]

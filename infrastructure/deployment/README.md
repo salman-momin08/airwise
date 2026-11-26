@@ -17,15 +17,16 @@ Primary cloud deployment target: **Zero-Cost Vercel Hosting (`vercel.json` + `ap
 1. Provision a free **Neon** or **Supabase** PostgreSQL 16 database and run [`infrastructure/docker/postgres/init-extensions.sql`](../docker/postgres/init-extensions.sql) once to enable `uuid-ossp`, `citext`, `postgis`, and `vector`.
 2. Provision a free **Upstash** Redis database and copy its `rediss://` URL.
 3. Import the `salman-momin08/airwise` repository into **Vercel** (keep Root Directory as `./` so `vercel.json` builds `frontend/` and mounts `api/index.py`).
-4. Configure Vercel Environment Variables:
+4. Configure Vercel Environment Variables (import directly from the root [`.env.example`](../../.env.example)):
    - `APP_ENV=production`
    - `DEBUG=false`
    - `AUTH_COOKIE_SECURE=true`
-   - `AUTH_SECRET_KEY=<64-byte-random-secret>`
-   - `DATABASE_URL=<neon-or-supabase-pooled-postgresql+asyncpg-url>`
+   - `AUTH_SECRET_KEY=<64-char-random-hex-secret>`
+   - `FRONTEND_URL=https://<your-project>.vercel.app` and `BACKEND_URL=https://<your-project>.vercel.app`
+   - `DATABASE_URL=<supabase-session-pooler-5432-or-neon-pooled-postgresql+asyncpg-url>`
    - `DATABASE_SERVERLESS_POOL=true`
    - `REDIS_URL=<upstash-rediss-url>`
-   - `CRON_SECRET=<32-byte-random-secret>`
+   - `CRON_SECRET=<32-char-random-hex-secret>` and `METRICS_INTERNAL_TOKEN=<32-char-random-hex-secret>`
    - `NEXT_PUBLIC_API_BASE_URL=/api/v1`
-   - `AIR_QUALITY_PROVIDER=openaq` (plus `AIR_QUALITY_API_KEY`, `WEATHER_API_KEY`, `OPENAI_API_KEY`)
+   - `LLM_PROVIDER=gemini`, `GEMINI_API_KEY`, `AIR_QUALITY_PROVIDER=openaq` (`AIR_QUALITY_API_KEY`), and `WEATHER_PROVIDER=open_meteo`
 5. Run `alembic upgrade head` via `.github/workflows/deploy.yml` (or locally pointing at `DATABASE_URL`) and deploy.

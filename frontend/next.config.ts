@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   // Use standalone output for Docker builds; Vercel manages its own optimized serverless output
   output: process.env.VERCEL === "1" ? undefined : "standalone",
   outputFileTracingRoot:
-    process.env.VERCEL === "1" ? path.join(__dirname, "..") : undefined,
+    process.env.VERCEL === "1" ? path.join(__dirname, "..") : path.resolve(__dirname),
   reactStrictMode: true,
   poweredByHeader: false,
   async rewrites() {

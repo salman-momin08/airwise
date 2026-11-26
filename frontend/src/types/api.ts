@@ -118,6 +118,9 @@ export interface AccountExportBundle {
     structured_response: unknown;
     created_at: string;
   }>;
+  daily_routines?: unknown[];
+  recommendations?: unknown[];
+  logged_actions?: unknown[];
 }
 
 export interface ResponseMeta {

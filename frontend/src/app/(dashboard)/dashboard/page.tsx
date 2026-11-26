@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DashboardAqiSnapshot } from "@/features/air-quality/dashboard-aqi-snapshot";
+import { TodayRecommendationsPanel } from "@/features/recommendations/today-recommendations-panel";
 
 const DASHBOARD_MODULES = [
   { title: "Current Air Quality", href: "/dashboard/air-quality", summary: "Standard-isolated AQI, pollutant breakdown, and data freshness provenance." },
@@ -33,6 +34,7 @@ export default function DashboardOverviewPage() {
       </div>
 
       <DashboardAqiSnapshot />
+      <TodayRecommendationsPanel />
 
       <section aria-label="Dashboard modules" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {DASHBOARD_MODULES.map((mod) => (

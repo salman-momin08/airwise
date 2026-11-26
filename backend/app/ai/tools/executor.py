@@ -22,6 +22,8 @@ from app.services.impact.calculators import (
     calculate_transport_emissions,
     estimate_relative_exposure_change,
 )
+from app.services.recommendations.recommendation_service import HybridRecommendationService
+from app.services.routines.routine_service import RoutinePlannerService
 from app.services.weather.weather_service import WeatherTelemetryService
 
 
@@ -139,12 +141,52 @@ class ToolExecutor:
                 **calculation.model_dump(exclude={"kind"})
             )
             return asdict(self.impact)
+        if name == "compare_daily_routines":
+            if self.user_id is None:
+                raise AuthenticationError()
+            planner = RoutinePlannerService(self.session, self.settings)
+            if self.request.city is not None:
+                comparison = await planner.compare_routine_windows(
+                    city=self.request.city,
+                    standard=self.request.standard,
+                    has_vulnerable_member=self.vulnerable,
+                )
+                return {
+                    "status": "available",
+                    "comparison": comparison.model_dump(mode="json"),
+                }
+            saved_routines = await planner.list_routines(user_id=self.user_id)
+            if saved_routines:
+                latest = saved_routines[0]
+                comparison = await planner.compare_routine_windows(
+                    city=latest.city,
+                    standard=latest.aqi_standard,
+                    has_vulnerable_member=self.vulnerable,
+                )
+                return {
+                    "status": "available",
+                    "comparison": comparison.model_dump(mode="json"),
+                }
+            return {
+                "status": "unavailable",
+                "reason": "Select a city or save a routine first to compare daily time blocks.",
+            }
+        if name == "generate_sustainable_alternatives":
+            rec_service = HybridRecommendationService(self.session, self.settings)
+            options = await rec_service.generate_screened_alternatives(
+                city=self.request.city,
+                standard=self.request.standard,
+            )
+            return {
+                "status": "available",
+                "alternatives": [opt.model_dump(mode="json") for opt in options],
+            }
         return {
             "status": "unavailable",
             "reason": (
                 "Explicit structured calculation inputs and source assumptions are required."
                 if name in {"calculate_transport_emissions", "estimate_exposure_change"}
-                else "This tool's backing routine, recommendation or community service is not "
-                "implemented yet. No results or saved changes are being claimed."
+                else "Community initiatives service is scheduled for Phase 6. "
+                "No results or saved changes are being claimed."
             ),
         }

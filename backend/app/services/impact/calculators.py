@@ -109,15 +109,49 @@ def calculate_indoor_filtration_ach(
     room_area_m2: float,
     ceiling_height_m: float,
     cadr_m3_per_hour: float,
+    infiltration_ach: float = 0.6,
+    penetration_factor: float = 0.8,
+    deposition_rate_per_hour: float = 0.2,
+    has_active_indoor_smoke: bool = False,
 ) -> ImpactResult:
     """Estimate clean air changes per hour (ACH) added by a HEPA purifier."""
     if room_area_m2 <= 0 or ceiling_height_m <= 0:
         raise ValueError("Room area and ceiling height must be positive.")
     if cadr_m3_per_hour < 0:
         raise ValueError("CADR must be non-negative.")
+    if infiltration_ach < 0 or penetration_factor < 0 or deposition_rate_per_hour < 0:
+        raise ValueError("Infiltration, penetration, and deposition inputs must be non-negative.")
 
     volume_m3 = room_area_m2 * ceiling_height_m
     ach = round(cadr_m3_per_hour / volume_m3, 2)
+    denom = infiltration_ach + deposition_rate_per_hour + ach
+    steady_state_ratio = (
+        round((penetration_factor * infiltration_ach) / denom, 2) if denom > 0 else 1.0
+    )
+
+    assumptions = [
+        (
+            f"Room volume: {volume_m3:.1f} m3 "
+            f"({room_area_m2:.1f} m2 x {ceiling_height_m:.2f} m)"
+        ),
+        f"Purifier CADR: {cadr_m3_per_hour:.0f} m3/h on selected speed",
+        (
+            f"Steady-state I/O particle ratio approximation: ~{steady_state_ratio:.2f} "
+            f"(infiltration={infiltration_ach:.2f}/h, penetration={penetration_factor:.2f}, "
+            f"deposition={deposition_rate_per_hour:.2f}/h)"
+        ),
+        "Indoor air quality is unmeasured unless a dedicated indoor PM2.5 sensor is connected.",
+        "Represents clean-air delivery rate per room volume, not a clinical guarantee.",
+    ]
+    if has_active_indoor_smoke:
+        assumptions.append(
+            "Active indoor combustion/smoke reported: prioritize source elimination "
+            "(stop incense, smoking, or unvented smoke) before relying on filtration."
+        )
+    else:
+        assumptions.append(
+            "Assumes closed exterior windows, clean filter media, and no active indoor smoke."
+        )
 
     return ImpactResult(
         metric="indoor_filtration_ach",
@@ -126,17 +160,9 @@ def calculate_indoor_filtration_ach(
         estimated_difference=ach,
         unit="clean_air_changes_per_hour",
         methodology="cadr_divided_by_room_volume",
-        assumptions=[
-            (
-                f"Room volume: {volume_m3:.1f} m3 "
-                f"({room_area_m2:.1f} m2 x {ceiling_height_m:.2f} m)"
-            ),
-            f"Purifier CADR: {cadr_m3_per_hour:.0f} m3/h on selected speed",
-            "Assumes closed exterior windows, clean filter media, and no active indoor smoke.",
-            "Represents clean-air delivery rate per room volume, not a clinical guarantee.",
-        ],
+        assumptions=assumptions,
         source_references=["US EPA Guide to Air Cleaners in the Home (CADR/ACH sizing)"],
-        confidence="medium",
+        confidence="low" if has_active_indoor_smoke else "medium",
     )
 
 

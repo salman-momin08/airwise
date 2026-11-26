@@ -113,8 +113,10 @@ they never masquerade as successful model generation. Daily quota violations are
 | | `GET /api/v1/routines/{id}` | User (Owner) | No | Inspect routine & activity slots |
 | | `PATCH /api/v1/routines/{id}` | User (Owner) | Yes | Confirm/edit routine activities |
 | | `DELETE /api/v1/routines/{id}` | User (Owner) | Yes | Delete saved routine |
-| **Impact** | `POST /api/v1/impact/calculate` | Guest / User | Conditional | Run deterministic transport/energy/filtration/exposure math |
-| | `GET /api/v1/impact/summary` | User | No | Aggregate avoided CO2e, actions & cost estimates |
+| **Impact** | `GET /api/v1/impact/factors` | Guest / User | No | List verified transport & electricity-grid reference factors |
+| | `POST /api/v1/impact/calculate` | Guest / User | Conditional | Run deterministic transport/energy/filtration/exposure math |
+| | `POST /api/v1/impact/actions` | User | Yes | Log self-reported protective/sustainable action + estimate |
+| | `GET /api/v1/impact/summary` | User | No | Aggregate avoided CO2e, actions & estimate totals |
 | | `GET /api/v1/impact/history` | User | No | Time-series of logged user actions & estimates |
 | **Alerts** | `GET /api/v1/alerts` | User | No | List configured smart alert rules |
 | | `POST /api/v1/alerts` | User | Yes | Create AQI/forecast/window alert rule |

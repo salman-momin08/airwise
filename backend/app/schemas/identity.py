@@ -257,3 +257,6 @@ class AccountExportData(BaseModel):
     daily_routines: list[dict[str, object]] = Field(default_factory=list)
     recommendations: list[dict[str, object]] = Field(default_factory=list)
     logged_actions: list[dict[str, object]] = Field(default_factory=list)
+    alert_rules: list[dict[str, object]] = Field(default_factory=list)
+    notifications: list[dict[str, object]] = Field(default_factory=list)
+    community_memberships: list[dict[str, object]] = Field(default_factory=list)

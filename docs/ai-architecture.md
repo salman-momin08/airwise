@@ -95,10 +95,10 @@ Stored in [`backend/app/ai/prompts/system_prompts.py`](../backend/app/ai/prompts
   schema, citation, numerical and safety verification pass; raw unverified model tokens are
   never streamed. Client disconnect cancels the orchestration task. Persistence completes
   before the terminal `complete` event.
-- **Explicit future-tool boundaries:** `compare_daily_routines` and
-  `generate_sustainable_alternatives` invoke the Phase 5 `RoutinePlannerService` and
-  `HybridRecommendationService` (read-only; they never auto-confirm or mutate user schedules).
-  `get_community_initiatives` remains allowlisted and returns `unavailable` until Phase 6.
+- **All 12 allowlisted tools live:** `compare_daily_routines`,
+  `generate_sustainable_alternatives`, and `get_community_initiatives` invoke the Phase 5/6
+  `RoutinePlannerService`, `HybridRecommendationService`, and `CommunityService` (strictly
+  read-only; tools never auto-confirm schedules, mutate preferences, or leak unconsented PII).
 - **Trusted corpus:** The ingestion CLI/worker accepts operator-reviewed local manifests from
   exact approved official HTTPS hosts, with content hashes, publication dates when known and
   review dates. The bundled WHO/EPA/NCDC texts are short original editorial summaries, not

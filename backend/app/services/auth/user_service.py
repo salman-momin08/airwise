@@ -10,6 +10,7 @@ from app.core.config import Settings
 from app.core.exceptions import ResourceNotFoundError
 from app.core.security import hash_ip_address
 from app.models.identity import SavedLocation, User, UserPreference, UserProfile
+from app.repositories.alerts_community_repository import AlertsCommunityRepository
 from app.repositories.assistant_repository import AssistantRepository
 from app.repositories.identity_repository import IdentityRepository
 from app.repositories.planning_repository import PlanningRepository
@@ -220,6 +221,9 @@ class UserAccountService:
         routines, recs, actions = await PlanningRepository(self._session).export_user_data(
             user_id=user_id
         )
+        alert_rules, notifs, memberships = await AlertsCommunityRepository(
+            self._session
+        ).export_user_data(user_id=user_id)
 
         await self._repo.append_audit_log(
             actor_user_id=user.id,
@@ -239,6 +243,9 @@ class UserAccountService:
             daily_routines=routines,
             recommendations=recs,
             logged_actions=actions,
+            alert_rules=alert_rules,
+            notifications=notifs,
+            community_memberships=memberships,
         )
 
     async def delete_my_account(self, *, user_id: uuid.UUID, client_ip: str | None) -> None:

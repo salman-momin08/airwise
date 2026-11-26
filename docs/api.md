@@ -122,7 +122,11 @@ they never masquerade as successful model generation. Daily quota violations are
 | | `POST /api/v1/alerts` | User | Yes | Create AQI/forecast/window alert rule |
 | | `PATCH /api/v1/alerts/{id}` | User (Owner) | Yes | Update threshold, quiet hours, or toggle |
 | | `DELETE /api/v1/alerts/{id}` | User (Owner) | Yes | Delete alert rule |
+| | `POST /api/v1/alerts/evaluate` | User | Yes | Evaluate user's active alert rules on demand |
+| | `POST /api/v1/alerts/unsubscribe-all` | User | Yes | One-click opt-out disabling active alert rules |
 | | `GET /api/v1/notifications` | User | No | Paginated in-app & delivery history |
+| | `PATCH /api/v1/notifications/{id}/read` | User (Owner) | Yes | Mark notification read |
+| | `POST /api/v1/notifications/read-all` | User | Yes | Mark all notifications read |
 | **Community** | `GET /api/v1/communities` | Guest / User | No | Discover neighborhood clean-air groups |
 | | `POST /api/v1/communities` | Moderator/Admin | Yes | Create moderated neighborhood group |
 | | `GET /api/v1/communities/{id}` | Guest / User | No | View aggregate community dashboard |
@@ -130,12 +134,15 @@ they never masquerade as successful model generation. Daily quota violations are
 | | `POST /api/v1/communities/{id}/leave` | User | Yes | Leave neighborhood group |
 | | `GET /api/v1/communities/{id}/initiatives` | Guest / User | No | List active clean-air challenges |
 | | `POST /api/v1/communities/{id}/initiatives` | Moderator/Admin | Yes | Launch community challenge |
-| **Admin** | `/api/v1/admin/*` | Admin | Yes | Users, data sources, RAG corpus, AI telemetry, moderation, audit logs |
+| | `POST /api/v1/communities/{id}/initiatives/{init_id}/participate` | User (Member) | Yes | Log voluntary self-reported challenge participation |
+| | `POST /api/v1/communities/{id}/reports` | User | Yes | Submit moderation / PII concern report |
+| **Admin** | `/api/v1/admin/*` | Moderator/Admin | Yes | Users, data sources, RAG corpus, AI telemetry, moderation queue (`/admin/community/*`), audit logs |
 | **System** | `GET /health/live` | Public | No | Process liveness probe |
 | | `GET /health/ready` | Public | No | DB + Redis readiness probe |
 | | `GET /metrics` | Internal / Token | No | Prometheus metrics scrape endpoint |
 | | `GET /api/v1/system/cron/daily-maintenance` | Internal (`CRON_SECRET`) | No | Vercel Cron daily session retention & telemetry refresh trigger |
 | | `GET /api/v1/system/cron/ingest-air-quality` | Internal (`CRON_SECRET`) | No | Scheduled priority-city AQI station & cache ingestion trigger |
+| | `GET /api/v1/system/cron/evaluate-alerts` | Internal (`CRON_SECRET`) | No | Scheduled smart AQI alert evaluation trigger |
 
 ---
 

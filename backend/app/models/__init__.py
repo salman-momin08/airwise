@@ -8,6 +8,16 @@ from app.models.assistant import (
     KnowledgeDocument,
     KnowledgeIngestionJob,
 )
+from app.models.community_alerts import (
+    AlertRule,
+    Community,
+    CommunityAbuseReport,
+    CommunityInitiative,
+    CommunityMember,
+    CommunityParticipation,
+    Notification,
+    NotificationDelivery,
+)
 from app.models.identity import (
     AuditLog,
     SavedLocation,
@@ -36,8 +46,14 @@ from app.models.telemetry import (
 
 __all__ = [
     "AIGenerationMetadata",
+    "AlertRule",
     "ChatConversation",
     "ChatMessage",
+    "Community",
+    "CommunityAbuseReport",
+    "CommunityInitiative",
+    "CommunityMember",
+    "CommunityParticipation",
     "KnowledgeChunk",
     "KnowledgeDocument",
     "KnowledgeIngestionJob",
@@ -49,6 +65,8 @@ __all__ = [
     "DailyRoutine",
     "EmissionFactor",
     "ImpactEstimate",
+    "Notification",
+    "NotificationDelivery",
     "Recommendation",
     "RecommendationFeedback",
     "RoutineActivity",

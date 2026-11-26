@@ -13,6 +13,7 @@ from app.db.session import get_db_session
 from app.integrations.email.provider import get_email_provider
 from app.schemas.common import ApiResponse, ResponseMeta
 from app.services.air_quality.telemetry_service import AirQualityTelemetryService
+from app.services.alerts.alert_service import SmartAlertService
 from app.services.auth.auth_service import AuthService
 
 router = APIRouter(prefix="/system", tags=["system"])
@@ -72,3 +73,23 @@ async def run_air_quality_ingestion_cron(
     aq_service = AirQualityTelemetryService(session=db, settings=settings)
     stats = await aq_service.ingest_priority_cities()
     return ApiResponse(data={"status": "completed", **stats}, meta=meta)
+
+
+@router.get(
+    "/cron/evaluate-alerts",
+    response_model=ApiResponse[dict[str, object]],
+)
+async def run_alert_evaluation_cron(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+    meta: Annotated[ResponseMeta, Depends(get_response_meta)],
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+) -> ApiResponse[dict[str, object]]:
+    """Authenticated cron endpoint for scheduled smart AQI alert evaluation."""
+    _verify_cron_secret(settings, authorization)
+    alert_service = SmartAlertService(session=db, settings=settings)
+    summary = await alert_service.evaluate_active_rules()
+    return ApiResponse(
+        data={"status": "completed", **summary.model_dump(mode="json")},
+        meta=meta,
+    )

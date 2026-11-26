@@ -17,6 +17,7 @@ from app.repositories.identity_repository import IdentityRepository
 from app.schemas.air_quality import CurrentAirQualitySchema
 from app.schemas.assistant import ChatRequest, ToolCall
 from app.services.air_quality.telemetry_service import AirQualityTelemetryService
+from app.services.community.community_service import CommunityService
 from app.services.impact.calculators import (
     ImpactResult,
     calculate_transport_emissions,
@@ -181,12 +182,20 @@ class ToolExecutor:
                 "status": "available",
                 "alternatives": [opt.model_dump(mode="json") for opt in options],
             }
+        if name == "get_community_initiatives":
+            comm_service = CommunityService(self.session, self.settings)
+            initiatives = await comm_service.list_public_initiatives_for_ai(
+                city=self.request.city
+            )
+            return {
+                "status": "available",
+                "initiatives": [item.model_dump(mode="json") for item in initiatives],
+                "privacy_notice": (
+                    "Aggregate self-reported participation only; "
+                    "never claims measured city AQI change."
+                ),
+            }
         return {
             "status": "unavailable",
-            "reason": (
-                "Explicit structured calculation inputs and source assumptions are required."
-                if name in {"calculate_transport_emissions", "estimate_exposure_change"}
-                else "Community initiatives service is scheduled for Phase 6. "
-                "No results or saved changes are being claimed."
-            ),
+            "reason": "Explicit structured calculation inputs and source assumptions are required.",
         }

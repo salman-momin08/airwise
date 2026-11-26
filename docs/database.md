@@ -77,7 +77,8 @@ erDiagram
     - `communities`: `id`, `slug UNIQUE`, `name`, `city`, `coarse_boundary_label`, `description`, `moderation_policy`, `created_by`, `created_at`. *(Never stores household street addresses.)*
     - `community_members`: `(community_id, user_id)` composite PK, `role ('member'|'moderator')`, `public_display_consent (BOOL DEFAULT false)`, `joined_at`.
     - `community_initiatives`: `id`, `community_id (FK)`, `title`, `challenge_type`, `starts_at`, `ends_at`, `moderation_status`.
-    - `community_participation`: `id`, `initiative_id (FK)`, `user_id (FK)`, `self_reported_actions_count`, `estimated_avoided_co2e_kg`, `reported_at`.
+    - `community_participation`: `id`, `initiative_id (FK)`, `user_id (FK NULL — anonymized on account deletion)`, `self_reported_actions_count`, `estimated_avoided_co2e_kg`, `note`, `moderation_status`, `reported_at`.
+    - `community_abuse_reports`: `id`, `community_id (FK)`, `initiative_id (FK NULL)`, `reporter_user_id (FK NULL)`, `reason_category`, `details`, `status ('open'|'resolved_removed'|'dismissed')`, `resolved_by (FK NULL)`, `resolution_note`, `created_at`, `resolved_at`.
 27. **`audit_logs`** & **`system_settings`**:
     - `audit_logs`: `id (UUID PK)`, `actor_user_id (UUID NULL — SET NULL on account deletion)`, `action`, `target_type`, `target_id`, `metadata_redacted (JSONB)`, `ip_hash`, `created_at`. Append-only.
     - `system_settings`: `key (TEXT PK)`, `value (JSONB)`, `updated_by`, `updated_at`.

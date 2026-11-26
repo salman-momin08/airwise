@@ -121,6 +121,9 @@ export interface AccountExportBundle {
   daily_routines?: unknown[];
   recommendations?: unknown[];
   logged_actions?: unknown[];
+  alert_rules?: unknown[];
+  notifications?: unknown[];
+  community_memberships?: unknown[];
 }
 
 export interface ResponseMeta {

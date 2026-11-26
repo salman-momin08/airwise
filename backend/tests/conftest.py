@@ -22,6 +22,7 @@ from app.integrations.air_quality.provider import reset_air_quality_circuit_brea
 from app.integrations.email.provider import ConsoleEmailProvider
 from app.main import create_app
 from app.services.air_quality.cache import telemetry_cache
+from app.services.alerts.alert_service import alert_deduplicator
 
 
 @pytest_asyncio.fixture
@@ -40,6 +41,7 @@ async def api_client(db_engine: AsyncEngine) -> AsyncIterator[AsyncClient]:
     get_settings.cache_clear()
     rate_limiter.reset_local_state()
     telemetry_cache.clear_local()
+    alert_deduplicator.reset_local_state()
     reset_air_quality_circuit_breakers()
     ConsoleEmailProvider.last_outbox.clear()
 

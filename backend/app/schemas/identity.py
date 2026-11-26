@@ -254,3 +254,6 @@ class AccountExportData(BaseModel):
     saved_locations: list[SavedLocationData]
     active_sessions_count: int
     chat_history: list[dict[str, object]] = Field(default_factory=list)
+    daily_routines: list[dict[str, object]] = Field(default_factory=list)
+    recommendations: list[dict[str, object]] = Field(default_factory=list)
+    logged_actions: list[dict[str, object]] = Field(default_factory=list)

@@ -2,37 +2,48 @@
 
 from __future__ import annotations
 
-REFERENCE_TRANSPORT_EMISSION_FACTORS: tuple[dict[str, object], ...] = (
+import asyncio
+
+from app.db.session import get_session_factory
+from app.repositories.planning_repository import PlanningRepository
+from app.services.impact.reference_factors import REFERENCE_EMISSION_FACTORS
+
+REFERENCE_TRANSPORT_EMISSION_FACTORS: tuple[dict[str, object], ...] = tuple(
     {
-        "mode_or_region_code": "passenger_car_petrol_india",
-        "factor_value": 0.168,
-        "unit": "kg_co2e_per_vkm",
-        "default_occupancy": 1.2,
-        "source_reference": "India GHG Program — Road Transport Emission Factors",
-        "effective_year": 2024,
-    },
-    {
-        "mode_or_region_code": "urban_metro_rail_india",
-        "factor_value": 0.028,
-        "unit": "kg_co2e_per_pkm",
-        "default_occupancy": 1.0,
-        "source_reference": "India GHG Program / Metro Rail Sustainability Reports",
-        "effective_year": 2024,
-    },
-    {
-        "mode_or_region_code": "city_bus_cng_electric_blend",
-        "factor_value": 0.042,
-        "unit": "kg_co2e_per_pkm",
-        "default_occupancy": 1.0,
-        "source_reference": "IPCC / Urban Bus Passenger-km Factor",
-        "effective_year": 2024,
-    },
+        "mode_or_region_code": spec.mode_or_region_code,
+        "factor_value": spec.factor_value,
+        "unit": spec.unit,
+        "default_occupancy": spec.default_occupancy,
+        "source_reference": spec.source_reference,
+        "effective_year": spec.effective_year,
+    }
+    for spec in REFERENCE_EMISSION_FACTORS
+    if spec.category == "transport"
 )
 
 
+async def seed_emission_factors() -> int:
+    async with get_session_factory()() as session:
+        repo = PlanningRepository(session)
+        for spec in REFERENCE_EMISSION_FACTORS:
+            await repo.upsert_emission_factor(
+                category=spec.category,
+                mode_or_region_code=spec.mode_or_region_code,
+                display_label=spec.display_label,
+                factor_value=spec.factor_value,
+                unit=spec.unit,
+                default_occupancy=spec.default_occupancy,
+                exposure_modifier=spec.exposure_modifier,
+                source_reference=spec.source_reference,
+                effective_year=spec.effective_year,
+            )
+        await session.commit()
+    return len(REFERENCE_EMISSION_FACTORS)
+
+
 def main() -> None:
-    count = len(REFERENCE_TRANSPORT_EMISSION_FACTORS)
-    print(f"Loaded {count} verified reference emission factors.")
+    seeded = asyncio.run(seed_emission_factors())
+    print(f"Seeded {seeded} verified reference emission factors.")
 
 
 if __name__ == "__main__":

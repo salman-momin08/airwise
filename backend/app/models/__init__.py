@@ -17,6 +17,15 @@ from app.models.identity import (
     UserProfile,
     UserSession,
 )
+from app.models.planning import (
+    DailyRoutine,
+    EmissionFactor,
+    ImpactEstimate,
+    Recommendation,
+    RecommendationFeedback,
+    RoutineActivity,
+    UserAction,
+)
 from app.models.telemetry import (
     AirQualityForecast,
     AirQualityMeasurement,
@@ -37,8 +46,15 @@ __all__ = [
     "AirQualitySource",
     "AirQualityStation",
     "AuditLog",
+    "DailyRoutine",
+    "EmissionFactor",
+    "ImpactEstimate",
+    "Recommendation",
+    "RecommendationFeedback",
+    "RoutineActivity",
     "SavedLocation",
     "User",
+    "UserAction",
     "UserActionToken",
     "UserPreference",
     "UserProfile",

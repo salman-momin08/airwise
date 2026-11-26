@@ -12,6 +12,7 @@ from app.core.security import hash_ip_address
 from app.models.identity import SavedLocation, User, UserPreference, UserProfile
 from app.repositories.assistant_repository import AssistantRepository
 from app.repositories.identity_repository import IdentityRepository
+from app.repositories.planning_repository import PlanningRepository
 from app.schemas.identity import (
     AccountExportData,
     AgeCategoryLiteral,
@@ -216,6 +217,9 @@ class UserAccountService:
         locations = await self._repo.list_saved_locations(user_id=user_id)
         active_sessions = await self._repo.list_active_sessions_for_user(user_id)
         chat_history = await AssistantRepository(self._session).export_history(user_id=user_id)
+        routines, recs, actions = await PlanningRepository(self._session).export_user_data(
+            user_id=user_id
+        )
 
         await self._repo.append_audit_log(
             actor_user_id=user.id,
@@ -232,6 +236,9 @@ class UserAccountService:
             saved_locations=[serialize_saved_location(loc) for loc in locations],
             active_sessions_count=len(active_sessions),
             chat_history=chat_history,
+            daily_routines=routines,
+            recommendations=recs,
+            logged_actions=actions,
         )
 
     async def delete_my_account(self, *, user_id: uuid.UUID, client_ip: str | None) -> None:

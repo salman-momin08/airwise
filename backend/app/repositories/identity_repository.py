@@ -19,6 +19,7 @@ from app.models.identity import (
     UserSession,
 )
 from app.repositories.assistant_repository import AssistantRepository
+from app.repositories.planning_repository import PlanningRepository
 
 
 class IdentityRepository:
@@ -335,6 +336,7 @@ class IdentityRepository:
     async def erase_user_account(self, *, user_id: uuid.UUID, ip_hash: str | None) -> None:
         """Delete personal records, revoke sessions, and anonymize audit_logs actor_user_id."""
         await AssistantRepository(self._session).delete_history(user_id=user_id)
+        await PlanningRepository(self._session).erase_user_data(user_id=user_id)
         await self._session.execute(
             update(AuditLog)
             .where(AuditLog.actor_user_id == user_id)

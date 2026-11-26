@@ -13,6 +13,13 @@ REDACTED_KEYS = frozenset(
         "x-csrf-token",
         "api_key",
         "openai_api_key",
+        "gemini_api_key",
+        "email_api_key",
+        "air_quality_api_key",
+        "weather_api_key",
+        "geocoding_api_key",
+        "cron_secret",
+        "metrics_internal_token",
         "auth_secret_key",
     }
 )

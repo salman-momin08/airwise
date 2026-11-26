@@ -63,3 +63,32 @@ flowchart TB
 3. **Rollback Procedure:**
    - **Application Rollback:** Promote the previous immutable deployment instantly via `vercel rollback` (or the Vercel Dashboard Instant Rollback button) and verify `/health/ready`.
    - **Database Rollback:** Create a zero-copy Neon branch / Supabase point-in-time backup prior to migration; for reversible additive migrations run `alembic downgrade -1`; for data-corrupting emergencies switch `DATABASE_URL` to the restored pre-migration branch.
+
+---
+
+## 4. Backup, Restore & Observability Alerting Runbook
+
+### 4.1 Scheduled Backup & Restore Verification
+1. **Managed Point-in-Time Recovery (PITR):** Enable Neon History Retention (7-day free window) or Supabase daily automated backups on the primary PostgreSQL 16 database.
+2. **Pre-Release Logical Snapshot:**
+   ```bash
+   pg_dump --format=custom --no-owner --no-acl "$DATABASE_URL" -f airwise_pre_release.dump
+   ```
+3. **Restore Drill (Isolated Branch / Staging):**
+   ```bash
+   pg_restore --clean --if-exists --no-owner --dbname="$STAGING_DATABASE_URL" airwise_pre_release.dump
+   cd backend && alembic current && pytest tests/contract -q
+   ```
+
+### 4.2 Prometheus & OpenTelemetry SLO Thresholds
+- Scrape `/metrics` with `X-Metrics-Token: <METRICS_INTERNAL_TOKEN>`:
+  - **Cached AQI Latency SLO:** `airwise_http_latency_p95_ms < 300` (warn at `>= 300ms`, page at `>= 500ms`).
+  - **HTTP 5xx Error Budget:** Rate of `airwise_http_errors_total` `< 1%` over 5 minutes.
+  - **AI Safe-Fallback Spike:** Alert when `airwise_llm_fallback_total / airwise_llm_requests_total > 0.25` over 15 minutes (indicates upstream Gemini quota/outage or corpus drift).
+- Set `OTEL_EXPORTER_OTLP_ENDPOINT` to export redacted FastAPI traces (`Authorization` and `Cookie` headers stripped by `infrastructure/monitoring/otel-collector-config.yaml`).
+
+### 4.3 Production Go-Live Checklist
+- [ ] `APP_ENV=production`, `DEBUG=false`, `AUTH_COOKIE_SECURE=true`, `AIR_QUALITY_PROVIDER != fixture`.
+- [ ] Cryptographic 64-byte `AUTH_SECRET_KEY`, `CRON_SECRET`, and `METRICS_INTERNAL_TOKEN` rotated in Vercel Encrypted Secrets.
+- [ ] `alembic upgrade head`, `python -m scripts.seed_reference_data`, and `python -m scripts.ingest_knowledge` executed against production PostgreSQL (`postgis` + `vector` enabled).
+- [ ] `/health/live` and `/health/ready` return `status: "ready"` with `checks.database: "ok"`.

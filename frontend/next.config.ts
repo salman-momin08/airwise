@@ -5,6 +5,18 @@ const nextConfig: NextConfig = {
   output: process.env.VERCEL === "1" ? undefined : "standalone",
   reactStrictMode: true,
   poweredByHeader: false,
+  async rewrites() {
+    if (process.env.VERCEL === "1") {
+      return [];
+    }
+    const backendOrigin = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${backendOrigin}/api/v1/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

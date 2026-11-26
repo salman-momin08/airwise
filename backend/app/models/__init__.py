@@ -21,6 +21,7 @@ from app.models.community_alerts import (
 from app.models.identity import (
     AuditLog,
     SavedLocation,
+    SystemSetting,
     User,
     UserActionToken,
     UserPreference,
@@ -71,6 +72,7 @@ __all__ = [
     "RecommendationFeedback",
     "RoutineActivity",
     "SavedLocation",
+    "SystemSetting",
     "User",
     "UserAction",
     "UserActionToken",

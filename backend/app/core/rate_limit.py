@@ -20,13 +20,19 @@ class SlidingWindowRateLimiter:
         self._memory_windows: dict[str, deque[float]] = {}
         self._redis_client: Redis | None = None
         self._redis_url_cached: str | None = None
+        self._redis_backoff_until: float = 0.0
 
     def reset_local_state(self) -> None:
         self._memory_windows.clear()
+        self._redis_backoff_until = 0.0
 
     def _get_redis(self) -> Redis | None:
         settings = get_settings()
-        if settings.app_env == "test" or not settings.redis_url:
+        if (
+            settings.app_env == "test"
+            or not settings.redis_url
+            or time.monotonic() < self._redis_backoff_until
+        ):
             return None
         if self._redis_client is None or self._redis_url_cached != settings.redis_url:
             self._redis_client = Redis.from_url(
@@ -59,6 +65,7 @@ class SlidingWindowRateLimiter:
             except RateLimitExceededError:
                 raise
             except RedisError as exc:
+                self._redis_backoff_until = time.monotonic() + 30.0
                 logger.warning("rate_limit_redis_fallback", scope=scope, reason=str(exc))
 
         bucket = self._memory_windows.setdefault(key, deque())

@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.models.identity import (
     AuditLog,
     SavedLocation,
+    SystemSetting,
     User,
     UserActionToken,
     UserPreference,
@@ -345,6 +346,11 @@ class IdentityRepository:
             update(AuditLog)
             .where(AuditLog.actor_user_id == user_id)
             .values(actor_user_id=None)
+        )
+        await self._session.execute(
+            update(SystemSetting)
+            .where(SystemSetting.updated_by == user_id)
+            .values(updated_by=None)
         )
         await self._session.execute(
             delete(SavedLocation).where(SavedLocation.user_id == user_id)

@@ -10,6 +10,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from app.core.config import get_settings
+from app.core.telemetry import telemetry_registry
 
 logger = structlog.get_logger(__name__)
 
@@ -37,13 +38,19 @@ class StaleAwareTelemetryCache:
         self._memory: dict[str, _MemoryCacheItem] = {}
         self._redis_client: Redis | None = None
         self._redis_url_cached: str | None = None
+        self._redis_backoff_until: float = 0.0
 
     def clear_local(self) -> None:
         self._memory.clear()
+        self._redis_backoff_until = 0.0
 
     def _get_redis(self) -> Redis | None:
         settings = get_settings()
-        if settings.app_env == "test" or not settings.redis_url:
+        if (
+            settings.app_env == "test"
+            or not settings.redis_url
+            or time.monotonic() < self._redis_backoff_until
+        ):
             return None
         if self._redis_client is None or self._redis_url_cached != settings.redis_url:
             self._redis_client = Redis.from_url(
@@ -61,16 +68,22 @@ class StaleAwareTelemetryCache:
             try:
                 raw = await redis.get(f"fresh:{key}")
                 if raw is not None:
+                    telemetry_registry.aqi_cache_hits_total += 1
                     return model_cls.model_validate_json(raw)
+                telemetry_registry.aqi_cache_misses_total += 1
                 return None
             except RedisError as exc:
+                self._redis_backoff_until = time.monotonic() + 30.0
                 logger.warning("telemetry_cache_read_fallback", key=key, reason=str(exc))
 
         entry = self._memory.get(key)
         if entry is None:
+            telemetry_registry.aqi_cache_misses_total += 1
             return None
         if time.monotonic() <= entry.fresh_until:
+            telemetry_registry.aqi_cache_hits_total += 1
             return model_cls.model_validate_json(entry.raw_json)
+        telemetry_registry.aqi_cache_misses_total += 1
         return None
 
     async def get_stale_backup(self, key: str, model_cls: type[ModelT]) -> ModelT | None:
@@ -82,6 +95,7 @@ class StaleAwareTelemetryCache:
                     return model_cls.model_validate_json(raw)
                 return None
             except RedisError as exc:
+                self._redis_backoff_until = time.monotonic() + 30.0
                 logger.warning("telemetry_stale_read_fallback", key=key, reason=str(exc))
 
         entry = self._memory.get(key)
@@ -115,6 +129,7 @@ class StaleAwareTelemetryCache:
                 pipe.setex(f"stale:{key}", stale_ttl_seconds, raw_json)
                 await pipe.execute()
             except RedisError as exc:
+                self._redis_backoff_until = time.monotonic() + 30.0
                 logger.warning("telemetry_cache_write_fallback", key=key, reason=str(exc))
 
     def expire_fresh_for_testing(self, key: str) -> None:

@@ -103,6 +103,7 @@ class IdentityRepository:
         user.profile = profile
         user.preferences = preferences
         self._session.add_all([user, profile, preferences])
+        await self._session.flush()
         return user
 
     async def create_session(

@@ -31,9 +31,15 @@ def get_engine() -> AsyncEngine:
     if _engine is None:
         settings = get_settings()
         if _use_serverless_null_pool():
+            connect_args = (
+                {"statement_cache_size": 0, "prepared_statement_cache_size": 0}
+                if settings.database_url.startswith("postgresql+asyncpg")
+                else {}
+            )
             _engine = create_async_engine(
                 settings.database_url,
                 poolclass=NullPool,
+                connect_args=connect_args,
                 echo=settings.debug,
             )
         else:

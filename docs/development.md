@@ -75,6 +75,16 @@ npm run test
 
 Consult [`AGENTS.md`](../AGENTS.md) and [`.agents/skills/`](../.agents/skills/) before implementing domain changes.
 
+### Selector styling
+
+Single-value dropdowns share chevron styling in
+[`globals.css`](../frontend/src/app/globals.css): a vertically centered, inset icon
+and reserved text padding, including dark mode and right-to-left layouts. Keep
+native `<select>` elements, labels, and keyboard behavior; multiple/listbox
+selectors are excluded, and forced-colors mode restores the browser arrow.
+With the frontend running, use `npx playwright test select-layout.spec.ts`
+from `frontend/` to check desktop/mobile alignment and keyboard selection.
+
 ---
 
 ## 5. Gemini Assistant and Trusted Knowledge

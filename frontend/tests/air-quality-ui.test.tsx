@@ -1,9 +1,20 @@
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { AirQualityTrendsChart } from "@/components/air-quality/air-quality-trends-chart";
 import { AQIBadge } from "@/components/air-quality/aqi-badge";
 import { PollutantBreakdownGrid } from "@/components/air-quality/pollutant-breakdown-grid";
 import { ProvenanceBanner } from "@/components/air-quality/provenance-banner";
+
+beforeAll(() => {
+  if (typeof globalThis.ResizeObserver === "undefined") {
+    globalThis.ResizeObserver = class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  }
+});
 
 afterEach(() => {
   cleanup();
@@ -54,5 +65,40 @@ describe("Air Quality Accessibility & Provenance UI", () => {
     expect(screen.getByText("Dominant")).toBeTruthy();
     expect(screen.getByText(/145.2/)).toBeTruthy();
     expect(screen.getByText("220")).toBeTruthy();
+  });
+
+  it("preserves unavailable null history points without fabricating zero AQI values", () => {
+    render(
+      <AirQualityTrendsChart
+        history={{
+          city: "Delhi",
+          standard: "india_naqi",
+          period: "24h",
+          provider: "openaq",
+          source_type: "station",
+          is_stale: false,
+          is_development_fixture: false,
+          series: [
+            {
+              timestamp: "2026-11-26T08:00:00Z",
+              aqi: null,
+              category: null,
+              pm25_ug_m3: null,
+              pm10_ug_m3: null,
+              dominant_pollutant: null,
+            },
+          ],
+        }}
+        period="24h"
+        onPeriodChange={vi.fn()}
+        isLoading={false}
+        isError={false}
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/AQI 0/i)).toBeNull();
+    expect(
+      screen.getByText(/AQI sub-index unavailable/i),
+    ).toBeTruthy();
   });
 });

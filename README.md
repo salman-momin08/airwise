@@ -14,11 +14,11 @@ The goal is not merely to answer **"What is the AQI?"** It is to help answer **"
 
 ## Contents
 
-- [1. Problem statement](#1-problem-statement)
-- [2. The solution AirWise provides](#2-the-solution-airwise-provides)
-- [3. Who it serves and the end-to-end journey](#3-who-it-serves-and-the-end-to-end-journey)
-- [4. Product modules and current scope](#4-product-modules-and-current-scope)
-- [5. System architecture](#5-system-architecture)
+- [1. Chosen vertical and problem statement](#1-chosen-vertical-and-problem-statement)
+- [2. Approach and logic](#2-approach-and-logic)
+- [3. How the solution works](#3-how-the-solution-works)
+- [4. Assumptions made and implementation boundaries](#4-assumptions-made-and-implementation-boundaries)
+- [5. Evaluation focus areas](#5-evaluation-focus-areas)
 - [6. Environmental data and AQI methodology](#6-environmental-data-and-aqi-methodology)
 - [7. AirWise Copilot and trusted RAG](#7-airwise-copilot-and-trusted-rag)
 - [8. Deterministic impact estimates](#8-deterministic-impact-estimates)
@@ -33,119 +33,117 @@ The goal is not merely to answer **"What is the AQI?"** It is to help answer **"
 - [17. Roadmap and documentation](#17-roadmap-and-documentation)
 - [18. Contributing and license](#18-contributing-and-license)
 
-## 1. Problem statement
+## 1. Chosen vertical and problem statement
 
-Urban air pollution and seasonal winter smog create a daily decision problem for individuals and households. A pollution reading alone does not tell a parent how to plan outdoor play, a commuter how to balance exposure and transport choices, or a caregiver how to respond to deteriorating conditions.
+### Chosen vertical
 
-The problem has several connected parts:
+**Vertical:** **Environmental Wellness, Climate Resilience, and Public-Safe Urban Air Pollution Decision Support** *(GenAI + Deterministic Sustainability & Health-Protective Lifestyle Intelligence)*.
+
+AirWise AI targets one of the highest-impact daily environmental challenges affecting urban residents: **chronic ambient air pollution and severe seasonal winter smog**. Across high-density cities, millions of parents, commuters, older adults, caregivers, students, and neighborhood organizers face hazardous particulate spikes (`PM2.5`, `PM10`) and gaseous pollutants (`NO2`, `SO2`, `CO`, `O3`), yet existing consumer tools stop at displaying raw AQI numbers or ungrounded generic tips.
+
+### Problem statement
+
+A raw pollution index does not tell a parent how to time school runs or indoor play, a commuter how to weigh roadside inhalation exposure against tailpipe carbon savings, or a caregiver how to protect vulnerable family members when data is stale or incomplete.
 
 | Gap | Why it matters |
 | :--- | :--- |
 | **Numbers without actionable context** | AQI categories do not directly explain which routines to change, which alternatives are feasible, or when guidance is uncertain. |
-| **Fragmented information** | Air quality, weather, indoor filtration advice, commute comparisons, and community initiatives often live in separate tools. |
-| **Incompatible AQI standards** | US EPA AQI and India NAQI use different breakpoints, averaging rules, and category names. Treating them as interchangeable can mislead users. |
-| **Incomplete or stale observations** | A missing pollutant, old station reading, or regional model output must not masquerade as a current street-level measurement. |
-| **Conflicting safety and sustainability goals** | A low-carbon commute is not automatically a low-exposure commute. Outdoor walking or cycling may be inappropriate during severe pollution. |
-| **Unreliable AI explanations** | A general-purpose chatbot can invent local readings, calculate unsupported savings, or supply unverifiable citations. |
-| **Privacy and control concerns** | Useful personalization should not require unnecessary precise location sharing, exposure of household information, or automatic schedule changes. |
+| **Fragmented information** | Air quality, weather dispersion, indoor filtration sizing, commute comparisons, and community initiatives live in disconnected tools. |
+| **Incompatible AQI standards** | US EPA AQI (`us_epa`) and India National AQI (`india_naqi`) use different breakpoints, averaging rules, and category names. Treating them as interchangeable misleads users. |
+| **Incomplete or stale observations** | A missing pollutant, delayed station reading, or regional atmospheric model output must never masquerade as a fresh street-level sensor measurement. |
+| **Conflicting safety and sustainability goals** | A low-carbon commute is not automatically a low-exposure commute. Outdoor walking or cycling is unsafe to recommend during severe smog solely to save `CO2e`. |
+| **Unreliable AI explanations** | An unconstrained chatbot can hallucinate local PM2.5 readings, invent emission math, or fabricate scientific citations. |
+| **Privacy and control concerns** | Helpful personalization must not force GPS tracking, leak household data across accounts, or mutate user schedules without explicit confirmation. |
 
-**The core problem:** People need trustworthy help translating environmental conditions into safer, realistic daily actions without confusing observations, forecasts, estimates, and general guidance.
+**Core problem statement:** People need a trustworthy, accessible system that translates verified environmental telemetry into safer, realistic daily actions while keeping observations, forecasts, deterministic estimates, and general public-health guidance strictly distinct.
 
-## 2. The solution AirWise provides
+---
 
-AirWise brings the decision process into one application:
+## 2. Approach and logic
 
-1. **Understand conditions:** Select a supported city or save a consented location; inspect air quality, pollutants, source, timestamps, and the selected AQI standard.
-2. **Apply safety rules:** Evaluate exposure concerns before optimizing carbon savings or convenience.
-3. **Explain options:** Use backend tools and reviewed environmental guidance to answer questions with explicit evidence and limitations.
-4. **Plan and compare:** Generate a routine, compare transport or household alternatives, and inspect deterministic estimates.
-5. **Keep the user in control:** Edit and explicitly save plans, configure alerts, choose what to share with the assistant, and manage stored history.
-6. **Support collective action:** Join neighborhood challenges and view aggregate participation without pretending voluntary actions measure a change in city-wide AQI.
+AirWise AI uses a **Hybrid Deterministic + Grounded GenAI Architecture**. Pure rule tables cannot answer nuanced household questions in plain language, while pure LLMs cannot be trusted to compute AQI sub-indices, calculate `CO2e` or `CADR/ACH`, or enforce safety boundaries reliably. AirWise separates those responsibilities cleanly:
 
-### Three separate impact dimensions
+1. **Deterministic Backend Owns All Math & Safety Gates:**
+   - Standard-isolated Python calculators ([`aqi_calculator.py`](./backend/app/services/air_quality/aqi_calculator.py)) compute `india_naqi` and `us_epa` sub-indices from normalized pollutant concentrations—returning `unavailable` (`aqi: null`) whenever required pollutants or averaging windows are missing.
+   - Deterministic environmental calculators ([`calculators.py`](./backend/app/services/impact/calculators.py)) compute passenger-kilometer transport `CO2e`, household electricity `kWh`/`CO2e`, indoor HEPA `CADR`/`ACH` sizing, and time-weighted relative exposure indices—always tagged `is_estimate: true` with explicit assumptions and source references.
+   - Deterministic safety rules ([`safety_engine.py`](./backend/app/services/recommendations/safety_engine.py) and [`safety_rules.py`](./backend/app/ai/guardrails/safety_rules.py)) block unsafe outdoor exercise or active-travel suggestions during poor/severe pollution before any AI narrative is generated.
+2. **Strict Six-Tier Decision Priority Hierarchy:**
+   Every recommendation, routine slot, and commute screening follows an explicit, invariant priority order:
+   `1. Immediate Exposure Safety -> 2. User Schedule Constraints -> 3. Practical Feasibility -> 4. Emission Reduction -> 5. Cost -> 6. Convenience`.
+3. **Separation of Three Distinct Impact Dimensions:**
 
-| Dimension | What AirWise helps evaluate | What it does not claim |
+| Dimension | What AirWise evaluates | What it strictly refuses to claim |
 | :--- | :--- | :--- |
-| **Personal exposure reduction** | Reducing time or estimated concentration in polluted microenvironments; choosing safer timing and indoor alternatives. | Exact inhaled dose, disease prevention, or a measured indoor reading inferred from outdoor AQI. |
-| **Emission reduction** | Estimated transport and electricity CO2e differences using explicit factors and assumptions. | That a lower-emission option is always safer to use today. |
-| **Community impact** | Voluntary participation, moderated initiatives, and aggregate action estimates. | That a household pledge or challenge measurably lowers city-wide ambient AQI. |
+| **1. Personal exposure reduction** | Lowering time or estimated concentration in polluted microenvironments; choosing cleaner windows, enclosed transit, and indoor HEPA filtration. | Exact biological inhaled dose, clinical diagnosis/outcomes, or a measured indoor reading inferred from outdoor AQI. |
+| **2. Emission reduction** | Estimated transport (`passenger-km`) and household electricity (`kWh`) `CO2e` differences using published emission factors and occupancy assumptions. | That a lower-emission option (e.g., cycling in severe smog) is safe to take today. |
+| **3. Community impact** | Voluntary neighborhood clean-air challenges, moderated tips, and privacy-preserving aggregate action counts. | That an individual household pledge or neighborhood challenge measurably lowers city-wide ambient AQI. |
 
-**Decision priority:** Exposure safety -> schedule constraints -> feasibility -> emission reduction -> cost -> convenience.
+4. **Bounded, Verifiable GenAI & Hybrid RAG:**
+   - **AirWise Copilot** runs a 14-stage backend pipeline with urgent medical red-flag screening, prompt-injection delimiters, a strict **12-tool RBAC-gated allowlist** (maximum 4 calls per turn), PostgreSQL hybrid vector + lexical evidence retrieval (`pgvector` + full-text reciprocal-rank fusion), Pydantic v2 structured output enforcement, post-LLM citation ID & numerical verification, at most one corrective retry, and a deterministic safe fallback when credentials, quotas, or validations fail.
+   - Raw unverified LLM tokens are **never** streamed to the browser; SSE `delta` chunks are emitted only after schema, citation, and numerical verification succeed.
+5. **Consent-First Privacy & Defense-in-Depth Security:**
+   - Guests can inspect city AQI without registering or granting geolocation. Authenticated users control exact vs. coarse location precision, per-request Gemini consent, preference sharing, chat retention, session revocation, portable JSON export, and full account erasure.
 
-For example, when pollution is severe, an outdoor exercise request should lead to a safer alternative and an explanation of uncertainty, not a recommendation to cycle solely because it saves CO2e. If indoor air is not measured, the application must say so.
+---
 
-## 3. Who it serves and the end-to-end journey
+## 3. How the solution works
 
-| User | Typical need | Relevant experience |
+### End-to-end user workflow and personas
+
+| Persona | Core decision need | Key AirWise modules |
 | :--- | :--- | :--- |
-| Parents and families | Plan school travel and outdoor activities; understand home filtration options. | Dashboard, routine planner, indoor-air guidance, alerts. |
-| Commuters | Compare travel alternatives without conflating exposure and emissions. | Transport comparison, impact estimates, Copilot. |
-| Older adults and caregivers | Clear, conservative environmental guidance and simple alerts. | Text-labeled AQI categories, assistant, alert preferences. |
-| Students | Understand pollution science and inspect the reasoning behind recommendations. | Learn hub, cited assistant answers, transparent calculators. |
-| Community organizers | Coordinate clean-air challenges and moderate local contributions. | Community groups, participation summaries, moderation tools. |
+| **Parents & families** | Plan school runs and outdoor play; size bedroom HEPA filtration safely. | Dashboard, Routine Planner, Indoor Air, Smart Alerts |
+| **Daily commuters** | Compare solo car, metro, carpool, EV, and active modes across exposure *and* `CO2e`. | Transport & Impact Engine, Routine Planner, Copilot |
+| **Older adults & caregivers** | High-contrast text-labeled AQI badges, calm conservative precautions, quiet-hour alerts. | Public/Auth Air Quality Explorer, Smart Alerts, Copilot |
+| **Students & learners** | Understand `PM2.5` vs `PM10`, inspect transparent formulas, read cited WHO/EPA/CPCB guidance. | Learn Hub, Copilot Citations, Impact Tracker |
+| **Community organizers** | Coordinate neighborhood no-idling or anti-waste-burning drives with privacy-safe aggregates. | Community Hub, Moderation Queue |
 
 ```mermaid
 flowchart LR
-    Discover["Explore public AQI and learning pages"] --> City["Choose city and AQI standard"]
-    City --> Conditions["Inspect conditions, source, and freshness"]
-    Conditions --> Account["Register and optionally personalize"]
-    Account --> Guidance["Ask Copilot or generate recommendations"]
-    Guidance --> Plan["Compare options and edit a daily plan"]
-    Plan --> Confirm["Explicitly save or log an action"]
-    Confirm --> Follow["Configure alerts and track estimates"]
-    Follow --> Community["Join voluntary neighborhood initiatives"]
+    Discover["1. Explore public AQI & Learn Hub"] --> City["2. Select city & isolated AQI standard"]
+    City --> Conditions["3. Inspect pollutants, provenance & freshness"]
+    Conditions --> Account["4. Register & set optional household preferences"]
+    Account --> Guidance["5. Ask Copilot or generate 5-domain recommendations"]
+    Guidance --> Plan["6. Draft & edit a smog-safe daily routine or compare transport"]
+    Plan --> Confirm["7. Explicitly confirm schedule or log completed action"]
+    Confirm --> Follow["8. Configure quiet-hour alerts & join community initiatives"]
 ```
 
-Public environmental pages do not require an account. Account-specific plans, preferences, history, and actions require authentication. Selecting a city remains an alternative to granting browser geolocation.
+### Product modules and routes
 
-## 4. Product modules and current scope
-
-The following modules have implementation paths in this repository. Their presence does not mean every live provider or release gate has been verified.
-
-| Module | Capabilities in the repository | Main UI routes |
+| Module | Capabilities implemented in the repository | Main UI routes |
 | :--- | :--- | :--- |
-| **Identity and governance** | Email/password registration and login, verification/reset APIs, session inspection/revocation, profile and preference management, export and deletion. | `/login`, `/register`, `/forgot-password`, `/dashboard/settings/*` |
-| **Locations** | City/postal-prefix search through a curated gazetteer, saved locations, precision metadata, ownership enforcement. | `/dashboard/settings/locations` |
-| **Environmental intelligence** | Current, historical, and forecast AQI; pollutant details; station/GeoJSON APIs; trend and map UI; provenance and fixture labeling. | `/air-quality`, `/air-quality/[city]`, `/dashboard/air-quality` |
-| **AirWise Copilot** | Gemini gateway, consent controls, bounded tools, evidence retrieval, validated SSE responses, optional persisted conversation history. | `/dashboard/assistant` |
-| **Recommendations and routines** | Exposure-first recommendations, feedback, daily routine generation, editing and persistence. | `/dashboard`, `/dashboard/routine-planner` |
-| **Indoor air and transport** | Filtration sizing guidance and deterministic comparisons of transport, energy, and relative exposure. | `/dashboard/indoor-air`, `/dashboard/transport` |
-| **Impact and history** | Explicit action logging and estimated impact summaries/history. | `/dashboard/impact`, `/dashboard/history` |
-| **Alerts** | Rule management, threshold/forecast/window/digest evaluation, notifications, cooldowns and quiet-hour handling. | `/dashboard/alerts` |
-| **Community** | Groups, initiatives, voluntary participation, aggregate summaries, reporting and moderation. | `/dashboard/community`, `/admin/community` |
-| **Learning and administration** | Educational pages; administrative users, data-source governance, knowledge governance, AI monitoring and audit views. | `/learn`, `/learn/[slug]`, `/admin/*` |
+| **Identity & governance** | Argon2id registration/login, email verification & password reset flows, session inspection/revocation, profile & preference controls, JSON data export, account deletion. | `/login`, `/register`, `/forgot-password`, `/dashboard/settings/*` |
+| **Consent-first locations** | Curated city/PIN-prefix gazetteer search, saved locations with `location_precision` (`city`, `postal_code`, `neighborhood`, `exact`), optional voluntary browser geolocation, ownership isolation. | `/dashboard/settings/locations` |
+| **Environmental intelligence** | Standard-isolated `india_naqi` & `us_epa` current AQI, 24h/7d/30d Recharts trends, 24h forecast strip & cleaner windows, MapLibre GL station map, weather dispersion context, staleness & fixture banners. | `/air-quality`, `/air-quality/[city]`, `/dashboard/air-quality` |
+| **AirWise Copilot & RAG** | Consent-gated Gemini gateway, 12 allowlisted tools, reviewed WHO/EPA/NCDC knowledge retrieval, verified SSE streaming, conversation history & deletion. | `/dashboard/assistant` |
+| **Recommendations & routines** | 5-category hybrid daily cards with feedback, plus Morning–Night routine draft generation, slot editing, and explicit confirmation before persistence. | `/dashboard`, `/dashboard/routine-planner` |
+| **Indoor air & transport** | Unmeasured-indoor-air guardrails, deterministic room `CADR`/`ACH` calculator, and exposure-screened passenger-km commute comparisons. | `/dashboard/indoor-air`, `/dashboard/transport` |
+| **Impact & history** | Self-reported action logging, cumulative avoided-`CO2e`/energy summaries, and chronological activity history. | `/dashboard/impact`, `/dashboard/history` |
+| **Smart alerts** | Threshold, severe-smog, forecast-deterioration, clean-window, stale-telemetry, and daily-digest rules with Redis deduplication, cooldowns, and timezone-aware quiet hours. | `/dashboard/alerts` |
+| **Neighborhood community** | Coarse-boundary groups, clean-air challenges, opt-in member display names, self-reported aggregate metrics, abuse reporting, and moderator/admin resolution. | `/dashboard/community`, `/admin/community` |
+| **Learn hub & admin console** | Public pollution explainers; role-gated admin overview, user management (with self-lockout protection), data-source governance, RAG corpus status, AI token/latency metrics, and redacted audit logs. | `/learn`, `/learn/[slug]`, `/admin/*` |
 
-### Important implementation boundaries
+### System architecture
 
-- **Live AQI:** OpenAQ and OpenWeather adapters exist. CPCB is a regional adapter interface, not a turnkey configured government-feed integration.
-- **Weather:** OpenWeather, Open-Meteo, and explicitly labeled fixture adapters exist. Availability depends on the selected provider and its response.
-- **Locations:** The bundled city catalog includes Delhi, Gurugram, Noida, Bengaluru, Mumbai, Chennai, Kolkata, Hyderabad, Pune, and Lucknow. Do not assume global city or address lookup merely because geocoding configuration fields exist.
-- **Google sign-in:** OAuth scaffolding/status exists, but the Google token exchange is a stub. Adding credentials alone does not complete social login.
-- **Notifications:** In-app and email delivery paths exist. Web push is represented as an unconfigured channel; it is not a working push subscription/delivery integration.
-- **Indoor sensors:** Filtration estimates are not an indoor sensor connection. Without an actual measurement, indoor air quality remains **unmeasured**.
-- **Language and accessibility:** The frontend includes localization and accessibility foundations. Full Hindi translation and a passed WCAG 2.2 AA audit are not implied.
-- **Historical/forecast coverage:** Charts and planning depend on available data; a requested period does not guarantee the provider has usable observations for that period.
-
-## 5. System architecture
-
-AirWise uses a **modular monolith**: one FastAPI application with explicit domain services, repositories, and schemas, rather than independently deployed microservices for every feature. This keeps authorization, numerical calculations, and persistence boundaries visible while allowing background work to run separately.
+AirWise uses a **modular monolith**: a Next.js 15 App Router frontend paired with a layered FastAPI backend (`api/v1` -> `services` & `ai/orchestration` -> `repositories` -> `models` + `integrations`), keeping authorization, deterministic math, and transaction boundaries explicit while offloading scheduled ingestion and alert evaluation to Celery workers or authenticated cron jobs.
 
 ```mermaid
 flowchart TB
-    Browser["Browser: public pages and authenticated workspace"]
-    UI["Next.js App Router: React and TypeScript"]
-    API["FastAPI: /api/v1, validation, sessions, CSRF, RBAC"]
-    Domains["Domain services: AQI, weather, planning, impact, alerts, community"]
-    AI["Copilot orchestration: tools, RAG, guardrails, Gemini gateway"]
-    PG[("PostgreSQL: relational data, PostGIS, pgvector")]
-    Redis[("Redis: cache, quotas, broker")]
-    Workers["Celery worker and Beat scheduler"]
-    Environment["Environmental providers"]
-    Gemini["Google Gemini: generation and embeddings"]
-    Email["Console or Resend email"]
+    Browser["Browser: Guest & Authenticated Workspaces"]
+    UI["Next.js 15 App Router (React 19, Strict TypeScript)"]
+    API["FastAPI Modular Monolith (/api/v1, Sessions, CSRF, RBAC, Security Headers)"]
+    Domains["Domain Engines: Standard-Isolated AQI, Weather, Safety, Routines, Impact, Alerts, Community"]
+    AI["Copilot Pipeline: 12-Tool Allowlist, Hybrid RAG, Guardrails, Verifier, Gemini Gateway"]
+    PG[("PostgreSQL 16: Relational + PostGIS + pgvector")]
+    Redis[("Redis 7: Stale-Aware Cache, Rate Limits, Token Budgets, Broker")]
+    Workers["Celery Worker & Beat Scheduler (or Authenticated Cron)"]
+    Environment["Allowlisted HTTPS Providers: OpenAQ, OpenWeather, Open-Meteo"]
+    Gemini["Google Gemini: Structured JSON & 768-dim Embeddings"]
+    Email["Console Sink or Resend Transactional Email"]
 
     Browser --> UI
-    UI <-->|"JSON and validated SSE"| API
+    UI <-->|"Typed JSON & Verified SSE"| API
     API --> Domains
     API --> AI
     Domains --> PG
@@ -160,26 +158,19 @@ flowchart TB
     Domains --> Email
 ```
 
-### Technology choices
-
-| Layer | Main technologies | Purpose |
+| Layer | Main technologies | Role in the solution |
 | :--- | :--- | :--- |
-| Frontend | Next.js 15, React 19, strict TypeScript | App Router pages, interactive workspace, typed API consumption. |
-| UI and state | Tailwind CSS, Radix/shadcn-style primitives, TanStack Query, Zustand | Shared visual tokens, accessible controls, server/client state. |
-| Forms and visualization | React Hook Form, Zod, Recharts, MapLibre GL | Input validation, pollutant trends, station maps. |
-| Backend | Python 3.12+, FastAPI, Pydantic v2 | Validated APIs and domain orchestration. |
-| Persistence | SQLAlchemy 2.x async, Alembic, PostgreSQL 16 | Ownership-scoped data access and versioned schema changes. |
-| Spatial and retrieval | PostGIS, pgvector, PostgreSQL full-text search | Saved/station locations and hybrid evidence retrieval. |
-| Background work | Redis 7, Celery worker, Celery Beat | Caching, AI quotas, scheduled ingestion, alerts and maintenance. |
-| AI | Gemini REST gateway and embeddings | Narrative generation and semantic search; never authoritative numerical math. |
-| Validation | Ruff, MyPy, Pytest, ESLint, TypeScript, Vitest, Playwright | Backend, frontend, integration and browser checks. |
-| Operations | Docker Compose, GitHub Actions, Vercel entrypoint, Prometheus/OpenTelemetry hooks | Local services, release workflows and observability. |
+| **Frontend** | Next.js 15, React 19, strict TypeScript | RSC route shells, interactive client workspaces, typed API & SSE clients. |
+| **Design & state** | Tailwind CSS, Radix primitives, TanStack Query, Zustand | WCAG 2.2 AA light/dark tokens, stale-aware server cache, lightweight guest location/standard state. |
+| **Forms & charts** | React Hook Form, Zod 4, Recharts, MapLibre GL 6 | Client schema validation, null-preserving pollutant charts, spatial station layer with accessible list fallback. |
+| **Backend** | Python 3.12+, FastAPI, Pydantic v2 | Versioned `/api/v1` contracts, centralized error envelopes, security middleware. |
+| **Persistence** | SQLAlchemy 2.x async, Alembic, PostgreSQL 16 (or SQLite demo) | Ownership-scoped repositories, PostGIS spatial points, `pgvector` embeddings, reversible migrations. |
+| **Resilience & workers** | Redis 7, Celery, HTTPX pooled clients | Fresh/stale-backup telemetry caching, sliding-window rate limits, circuit breakers, scheduled tasks. |
+| **Quality & testing** | Ruff, MyPy (`--strict`), Pytest, ESLint, Vitest, `axe-core`, Playwright | Static analysis, unit/integration/contract/security/AI-eval suites, WCAG 2.2 AA checks, 13-step Chromium E2E. |
 
 Dependency manifests are authoritative: [backend dependencies](./backend/pyproject.toml) and [frontend dependencies](./frontend/package.json).
 
 ### Persistence domains
-
-This is a conceptual data map, not an exhaustive entity-relationship diagram:
 
 ```mermaid
 flowchart LR
@@ -208,6 +199,49 @@ flowchart LR
 ```
 
 See the [system architecture](./docs/architecture.md), [database specification](./docs/database.md), and [architecture decisions](./docs/architecture-decisions/) for deeper design context.
+
+---
+
+## 4. Assumptions made and implementation boundaries
+
+To ensure scientific honesty, safe user decisions, and reproducible evaluation, AirWise AI makes every modeling assumption and implementation boundary explicit:
+
+### Scientific & environmental calculation assumptions
+
+1. **Standard-specific AQI preconditions & truncation:** `us_epa` and `india_naqi` are never mixed or cross-labeled. `india_naqi` requires at least **three** valid pollutants including **`PM2.5` or `PM10`**; if fewer pollutants are reported, overall AQI explicitly returns `null` (`status: "unavailable"`). `us_epa` applies EPA truncation rules (`PM2.5` to `0.1 µg/m³`, `PM10` to integer, `CO` to `0.1 ppm`, `O3` to `0.001 ppm`) prior to piecewise linear interpolation.
+2. **Gaseous unit conversion reference state:** When converting gaseous concentrations (`NO2`, `SO2`, `CO`, `O3`) between mass (`µg/m³`, `mg/m³`) and mixing ratio (`ppb`, `ppm`), AirWise assumes standard ambient reference conditions of **25 °C (298.15 K) and 1 atm (101.325 kPa)** (`24.45 L/mol` molar volume). Particulate matter (`PM2.5`, `PM10`) is never converted from `ppb`/`ppm`.
+3. **Staleness window:** Ambient observations older than **3 hours** (`10,800 s`) or served from expired fallback cache are flagged `is_stale: true` and accompanied by a visible UI staleness warning.
+4. **Deterministic impact assumptions (`is_estimate: true`):**
+   - *Transportation `CO2e`:* Uses published regional passenger-km / vehicle-km factors (e.g., India GHG Program / US EPA reference factors seeded via [`reference_factors.py`](./backend/app/services/impact/reference_factors.py)) divided by explicit vehicle occupancy, without double-dividing already passenger-normalized transit factors.
+   - *Household electricity:* Multiplies `power_kW * operating_hours * regional_grid_factor` (`india_cea_grid_avg` or `us_epa_egrid_avg`) as a marginal operational estimate rather than smart-meter billing data.
+   - *Indoor HEPA filtration:* Models clean-air delivery rate per room volume (`ACH = CADR / (area * ceiling_height)`) assuming a reasonably sealed, well-mixed single room; it does not claim guaranteed indoor `PM2.5` readings or clinical risk percentages.
+   - *Relative exposure:* Computes a comparative `PM2.5 * duration * microenvironment_modifier` index rather than individual physiological inhaled dose (which depends on breathing rate and mask fit).
+5. **Unmeasured indoor air assumption:** Unless a physical indoor particulate monitor is integrated, indoor air quality is treated and labeled as **unmeasured**—never inferred numerically from outdoor station AQI. Houseplants and ozone-generating cleaners are explicitly excluded as particulate controls.
+
+### Data, privacy, and operational boundaries
+
+- **Live vs. fixture telemetry:** `OpenAQ`, `OpenWeather`, and keyless `Open-Meteo` adapters are implemented; `CPCB` is a regional adapter interface rather than a pre-wired government credentialed feed. Offline/CI runs use the explicit `fixture` provider (`is_development_fixture: true`), which startup validation strictly rejects when `APP_ENV=production`.
+- **Supported city gazetteer:** Out-of-the-box city and PIN-prefix lookup covers **10 major Indian urban centers** (Delhi, Gurugram, Noida, Bengaluru, Mumbai, Chennai, Kolkata, Hyderabad, Pune, and Lucknow) without requiring external geocoding keys or browser GPS.
+- **User confirmation & privacy:** Schedules, preferences, and community memberships never auto-mutate without user confirmation. Community participation metrics are explicitly labeled as self-reported aggregates with coarse neighborhood labels only.
+- **Stubbed external channels:** Email/password auth, console/Resend email, and in-app alerts are implemented end-to-end; Google OAuth token exchange and Web Push delivery are represented as explicit non-blocking stubs.
+- **Local SQLite vs. full PostgreSQL/Redis stack:** Lightweight local/CI execution uses SQLite + in-memory fallbacks for deterministic testing, whereas production spatial (`PostGIS`), vector (`pgvector`), and distributed worker (`Celery` + `Redis`) capabilities require the full-service stack.
+
+---
+
+## 5. Evaluation focus areas
+
+The repository is structured and verified directly against the six core engineering evaluation dimensions:
+
+| Focus Area | How AirWise AI delivers and validates it | Key codebase evidence |
+| :--- | :--- | :--- |
+| **1. Code Quality** | Strict unidirectional modular-monolith layering (`api` -> `services`/`ai` -> `repositories` -> `models`), RSC-first Next.js App Router, zero `any` escapes, `mypy --strict` across 118 Python files, `ruff` (including Bandit `S` & `ASYNC` rules), `eslint --max-warnings=0`, strict `tsc --noEmit`, and 6 Architecture Decision Records. | [`backend/app/`](./backend/app/), [`frontend/src/`](./frontend/src/), [`docs/architecture-decisions/`](./docs/architecture-decisions/) |
+| **2. Security** | Argon2id hashing, `HttpOnly` + `SameSite=Lax` cookies, double-submit `X-CSRF-Token` + `Origin`/`Referer` checks, refresh rotation with replay-reuse revocation, repository-level `user_id` IDOR isolation, HTTPS host-allowlist SSRF guard, 12-tool AI allowlist + untrusted RAG delimiters + citation domain allowlist, HTTP security headers (`CSP`, `X-Frame-Options`, `nosniff`, `COOP`, `CORP`, `Permissions-Policy`, `Cache-Control: no-store`), `repr=False` secrets + recursive log redaction, non-root Dockerfiles, and **`0` `npm audit` vulnerabilities**. | [`security.py`](./backend/app/core/security.py), [`middleware.py`](./backend/app/core/middleware.py), [`http_resilience.py`](./backend/app/integrations/http_resilience.py), [`guidance-card.tsx`](./frontend/src/components/assistant/guidance-card.tsx) |
+| **3. Efficiency** | Batched SQL `GROUP BY` / `JOIN` queries eliminating `N+1` lookups (`list_stations_in_bbox` runs constant 2 `SELECT`s; batched community & initiative aggregations), memoized `(city, standard)` lookups in batch alert evaluation, loop-scoped pooled `httpx.AsyncClient` & Redis connections, stale-aware Redis cache with bounded `O(1)` local fallback eviction, serverless `NullPool` mode, sliding-window LLM token budgets, and Next.js `optimizePackageImports` + static route prerendering. | [`telemetry_repository.py`](./backend/app/repositories/telemetry_repository.py), [`cache.py`](./backend/app/services/air_quality/cache.py), [`budget.py`](./backend/app/ai/gateway/budget.py), [`next.config.ts`](./frontend/next.config.ts) |
+| **4. Testing** | Multi-layer test pyramid: **89 backend Pytest tests** (unit, integration, API contract, security/IDOR/CSRF/SSRF, and the 12-scenario AI safety/grounding evaluation suite), **27 frontend Vitest tests** (Zod schemas, SSE stream state machine, UI flows, null-data chart integrity, and `axe-core` WCAG 2.2 AA checks), and **Playwright Chromium E2E** covering the complete 13-step user journey. | [`backend/tests/`](./backend/tests/), [`frontend/tests/`](./frontend/tests/), [`frontend/e2e/`](./frontend/e2e/), [`ci.yml`](./.github/workflows/ci.yml) |
+| **5. Accessibility** | WCAG 2.2 Level AA color tokens (`>= 4.5:1` verified mathematically across both Light and Dark themes), non-color-only `AQIBadge` (symbol + numeric value + category + standard + `role="status"`), universal skip link (`#main-content` across all routes), `:focus-visible` keyboard outlines, `prefers-reduced-motion` & `forced-colors` support, labeled forms (`aria-invalid` + valid `aria-describedby`), `aria-busy` skeletons, `aria-live` streaming status, and automated `axe-core` verification. | [`globals.css`](./frontend/src/app/globals.css), [`aqi-badge.tsx`](./frontend/src/components/air-quality/aqi-badge.tsx), [`accessibility-axe.test.tsx`](./frontend/tests/accessibility-axe.test.tsx) |
+| **6. Problem Statement Alignment** |Directly solves daily household smog decision-making by uniting standard-isolated AQI, exposure-first safety overrides, grounded RAG Copilot explanations, editable routine planning, transparent `CO2e`/`CADR` math, smart quiet-hour alerts, and privacy-safe neighborhood challenges under 15 non-negotiable domain invariants. | [`AGENTS.md`](./AGENTS.md), [`docs/prd.md`](./docs/prd.md), [`docs/safety.md`](./docs/safety.md) |
+
+---
 
 ## 6. Environmental data and AQI methodology
 
@@ -543,9 +577,9 @@ Use the [backend environment template](./backend/.env.example) and [frontend env
 | `DATABASE_URL`, `REDIS_URL` | Persistence, caching, budgets and background broker. SQLite/empty Redis is a limited demo configuration. |
 | `AUTH_SECRET_KEY`, `AUTH_COOKIE_SECURE` | Replace development secrets; use secure cookies for production HTTPS. |
 | `FRONTEND_URL`, `BACKEND_URL` | Public origins for CORS/auth links and backend URLs; keep hostname choices consistent. |
-| `AIR_QUALITY_PROVIDER` | `openaq`, `openweather`, `cpcb` interface, or explicit `fixture`. |
-| `AIR_QUALITY_FALLBACK_PROVIDER` | `openaq`, `openweather`, or `none`. |
-| `AIR_QUALITY_API_KEY` | Current AQI adapter credential. Primary/fallback share this setting; do not assume one provider's key works for another. |
+| `AIR_QUALITY_PROVIDER` | `openaq`, `openweather`, `open_meteo`, `cpcb` interface, or explicit `fixture`. |
+| `AIR_QUALITY_FALLBACK_PROVIDER` | `openaq`, `openweather`, `open_meteo` (default keyless model fallback), or `none`. |
+| `AIR_QUALITY_API_KEY`, `AIR_QUALITY_FALLBACK_API_KEY` | Provider-specific AQI credentials; primary keys are never leaked to a mismatched fallback provider. |
 | `WEATHER_PROVIDER`, `WEATHER_API_KEY` | `openweather`, `open_meteo`, or `fixture`; credential requirements vary. |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Backend-only Gemini generation; default model is `gemini-2.5-flash`. |
 | `EMBEDDING_MODEL` | Default `gemini-embedding-001`; model changes require compatible re-ingestion. |
@@ -624,6 +658,7 @@ python -m pytest
 
 ```powershell
 Set-Location .\frontend
+npm audit
 npm run lint
 npm run typecheck
 npm run test
@@ -644,12 +679,12 @@ Set `PLAYWRIGHT_BASE_URL` if the frontend is not at `http://localhost:3000`. Pla
 
 | Suite | Main purpose |
 | :--- | :--- |
-| Backend unit tests | AQI boundaries, deterministic math, gateway and domain rules. |
-| Integration/contract/security tests | API flows, persistence behavior, authorization and error contracts. |
-| AI evaluations | Safety, grounding, citation/number validation and fallback scenarios. |
-| Vitest | UI behavior, AQI standards, assistant streaming and feature workflows. |
-| Playwright | Browser flows including the full-stack user journey and assistant UI scenario. |
-| CI | Backend checks, frontend checks/build, browser journey, and Docker image builds. |
+| Backend unit tests | AQI boundaries, deterministic math, secret redaction, bounded caches, query batching, gateway and domain rules. |
+| Integration/contract/security tests | API flows, persistence behavior, RBAC/IDOR/CSRF/SSRF defenses, security headers, and error contracts. |
+| AI evaluations | 12-scenario safety, grounding, prompt-injection, citation/number validation and deterministic fallback harness. |
+| Vitest & `axe-core` | UI behavior, AQI standard isolation, null-preserving charts, assistant SSE streaming, WCAG 2.2 AA `axe-core` rules, and light/dark token contrast ratios (`>= 4.5:1`). |
+| Playwright | Chromium browser scenarios including the full-stack 13-step user journey, assistant streaming UI, and select control layout. |
+| CI | Backend Ruff/MyPy/Pytest, Frontend ESLint/TypeScript/Vitest/Next build, full-stack 13-step Playwright E2E, and Docker image builds. |
 
 The [CI workflow](./.github/workflows/ci.yml) uses SQLite and labeled fixtures for its full-stack journey. Assistant browser scenarios mock API output, and automated Gemini tests use mocks. These tests **do not certify live credentials, PostgreSQL vector ranking, production provider coverage, Redis connectivity, or an operational deployment**.
 

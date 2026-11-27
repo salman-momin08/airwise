@@ -22,7 +22,7 @@ export default function LandingPage() {
           <Link href="/register" className="rounded-lg border border-brand-primary px-4 py-2 text-brand-primary">
             Create Account
           </Link>
-          <Link href="/dashboard" className="rounded-lg bg-brand-primary px-4 py-2 text-white">
+          <Link href="/dashboard" className="rounded-lg bg-brand-primary px-4 py-2 font-semibold text-white dark:text-background">
             Open Dashboard
           </Link>
         </nav>

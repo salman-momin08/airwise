@@ -14,12 +14,12 @@ export const createAlertRuleFormSchema = z
       "daily_digest",
     ]),
     aqi_standard: z.enum(["india_naqi", "us_epa"]),
-    threshold_value: z.coerce.number().int().min(10).max(500),
+    threshold_value: z.coerce.number<number>().int().min(10).max(500),
     enable_email: z.boolean(),
     enable_quiet_hours: z.boolean(),
     quiet_hours_start: z.string().regex(hhmmRegex, "Use HH:MM (24-hour) format."),
     quiet_hours_end: z.string().regex(hhmmRegex, "Use HH:MM (24-hour) format."),
-    cooldown_minutes: z.coerce.number().int().min(15).max(1440),
+    cooldown_minutes: z.coerce.number<number>().int().min(15).max(1440),
     timezone: z.string().trim().min(2, "Enter an IANA timezone.").max(64),
   })
   .refine(
@@ -33,8 +33,8 @@ export const createAlertRuleFormSchema = z
 export type CreateAlertRuleFormValues = z.infer<typeof createAlertRuleFormSchema>;
 
 export const logCommunityParticipationFormSchema = z.object({
-  self_reported_actions_count: z.coerce.number().int().min(1).max(50),
-  commute_distance_saved_km: z.coerce.number().min(0).max(500),
+  self_reported_actions_count: z.coerce.number<number>().int().min(1).max(50),
+  commute_distance_saved_km: z.coerce.number<number>().min(0).max(500),
   note: z
     .string()
     .trim()

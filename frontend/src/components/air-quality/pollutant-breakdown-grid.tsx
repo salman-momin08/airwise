@@ -65,7 +65,7 @@ export function PollutantBreakdownGrid({
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-bold text-text-primary">{meta.label}</h3>
               {isDominant ? (
-                <span className="rounded bg-brand-primary px-2 py-0.5 text-[11px] font-semibold text-white">
+                <span className="rounded bg-brand-primary px-2 py-0.5 text-[11px] font-semibold text-white dark:text-background">
                   Dominant
                 </span>
               ) : null}

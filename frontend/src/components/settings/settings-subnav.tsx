@@ -47,7 +47,7 @@ export function SettingsSubnav() {
                 aria-current={active ? "page" : undefined}
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                   active
-                    ? "bg-brand-primary text-white"
+                    ? "bg-brand-primary text-white dark:text-background"
                     : "border border-border bg-surface text-text-primary hover:bg-brand-accent/40"
                 }`}
               >
@@ -73,7 +73,7 @@ export function SettingsSubnav() {
           ) : (
             <Link
               href="/login"
-              className="rounded-lg bg-brand-primary px-3 py-1.5 font-medium text-white"
+              className="rounded-lg bg-brand-primary px-3 py-1.5 font-medium text-white dark:text-background"
             >
               Sign in
             </Link>

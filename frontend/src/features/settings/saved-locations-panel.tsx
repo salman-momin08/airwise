@@ -174,7 +174,7 @@ export function SavedLocationsPanel() {
                       </span>
                     </span>
                     {loc.is_primary ? (
-                      <span className="rounded bg-brand-accent px-2 py-0.5 text-xs font-semibold text-brand-primary">
+                      <span className="rounded border border-brand-primary/50 bg-brand-accent px-2 py-0.5 text-xs font-semibold text-text-primary">
                         Primary
                       </span>
                     ) : null}
@@ -375,7 +375,7 @@ export function SavedLocationsPanel() {
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+              className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 dark:text-background"
             >
               {createMutation.isPending ? "Saving location…" : "Save location"}
             </button>

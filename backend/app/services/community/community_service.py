@@ -79,14 +79,15 @@ class CommunityService:
             created_at=_ensure_utc(comm.created_at),
         )
 
-    async def _serialize_initiative(
+    def _serialize_initiative_from_metrics(
         self,
         item: CommunityInitiative,
+        metrics: tuple[int, int, float],
         *,
         community_name: str | None = None,
         city: str | None = None,
     ) -> CommunityInitiativeSchema:
-        entries, actions, co2e = await self._repo.aggregate_initiative_metrics(item.id)
+        entries, actions, co2e = metrics
         return CommunityInitiativeSchema(
             id=item.id,
             community_id=item.community_id,
@@ -105,12 +106,53 @@ class CommunityService:
             created_at=_ensure_utc(item.created_at),
         )
 
+    async def _serialize_initiative(
+        self,
+        item: CommunityInitiative,
+        *,
+        community_name: str | None = None,
+        city: str | None = None,
+    ) -> CommunityInitiativeSchema:
+        metrics = await self._repo.aggregate_initiative_metrics(item.id)
+        return self._serialize_initiative_from_metrics(
+            item, metrics, community_name=community_name, city=city
+        )
+
     async def list_communities(
         self, *, city: str | None = None, current_user_id: uuid.UUID | None = None
     ) -> list[CommunitySummarySchema]:
         rows = await self._repo.list_communities(city=city)
+        if not rows:
+            return []
+        comm_ids = {comm.id for comm in rows}
+        member_counts = await self._repo.count_members_batch(comm_ids)
+        active_init_counts = await self._repo.count_active_initiatives_batch(comm_ids)
+        memberships = (
+            await self._repo.get_memberships_batch(
+                community_ids=comm_ids, user_id=current_user_id
+            )
+            if current_user_id is not None
+            else {}
+        )
         return [
-            await self._build_summary(comm, current_user_id=current_user_id) for comm in rows
+            CommunitySummarySchema(
+                id=comm.id,
+                slug=comm.slug,
+                name=comm.name,
+                city=comm.city,
+                coarse_boundary_label=comm.coarse_boundary_label,
+                description=comm.description,
+                member_count=member_counts.get(comm.id, 0),
+                active_initiatives_count=active_init_counts.get(comm.id, 0),
+                is_current_user_member=comm.id in memberships,
+                current_user_public_display_consent=(
+                    bool(memberships[comm.id].public_display_consent)
+                    if comm.id in memberships
+                    else False
+                ),
+                created_at=_ensure_utc(comm.created_at),
+            )
+            for comm in rows
         ]
 
     async def get_community_detail(
@@ -196,9 +238,15 @@ class CommunityService:
         rows = await self._repo.list_initiatives(
             community_id=community_id, include_non_active=include_non_active
         )
+        metrics_by_id = await self._repo.aggregate_initiatives_metrics_batch(
+            {item.id for item in rows}
+        )
         return [
-            await self._serialize_initiative(
-                item, community_name=comm.name, city=comm.city
+            self._serialize_initiative_from_metrics(
+                item,
+                metrics_by_id.get(item.id, (0, 0, 0.0)),
+                community_name=comm.name,
+                city=comm.city,
             )
             for item in rows
         ]
@@ -209,10 +257,14 @@ class CommunityService:
         communities = {
             c.id: c for c in await self._repo.list_communities(city=city)
         }
-        rows = await self._repo.list_initiatives(city=city, include_non_active=False)
+        rows = (await self._repo.list_initiatives(city=city, include_non_active=False))[:15]
+        metrics_by_id = await self._repo.aggregate_initiatives_metrics_batch(
+            {item.id for item in rows}
+        )
         return [
-            await self._serialize_initiative(
+            self._serialize_initiative_from_metrics(
                 item,
+                metrics_by_id.get(item.id, (0, 0, 0.0)),
                 community_name=(
                     communities[item.community_id].name
                     if item.community_id in communities
@@ -224,7 +276,7 @@ class CommunityService:
                     else city
                 ),
             )
-            for item in rows[:15]
+            for item in rows
         ]
 
     async def create_initiative(

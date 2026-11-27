@@ -183,7 +183,7 @@ export function RoutinePlannerWorkspace() {
               id="routine-city"
               {...form.register("city")}
               aria-invalid={Boolean(errors.city)}
-              aria-describedby="routine-city-error"
+              aria-describedby={errors.city ? "routine-city-error" : undefined}
               className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-sm"
             />
             {errors.city ? (
@@ -217,7 +217,7 @@ export function RoutinePlannerWorkspace() {
               step="0.5"
               {...form.register("commute_distance_km")}
               aria-invalid={Boolean(errors.commute_distance_km)}
-              aria-describedby="routine-distance-error"
+              aria-describedby={errors.commute_distance_km ? "routine-distance-error" : undefined}
               className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-sm"
             />
             {errors.commute_distance_km ? (

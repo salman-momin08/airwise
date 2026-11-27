@@ -39,7 +39,7 @@ export default async function CityAirQualityPage({ params }: CityAirQualityPageP
           </Link>
           <Link
             href="/register"
-            className="rounded-lg bg-brand-primary px-4 py-2 text-white"
+            className="rounded-lg bg-brand-primary px-4 py-2 font-semibold text-white dark:text-background"
           >
             Save Alerts &amp; Routines
           </Link>

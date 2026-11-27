@@ -11,6 +11,10 @@ REDACTED_KEYS = frozenset(
         "cookie",
         "set-cookie",
         "x-csrf-token",
+        "token",
+        "access_token",
+        "refresh_token",
+        "secret",
         "api_key",
         "openai_api_key",
         "gemini_api_key",
@@ -19,11 +23,22 @@ REDACTED_KEYS = frozenset(
         "air_quality_fallback_api_key",
         "weather_api_key",
         "geocoding_api_key",
+        "google_oauth_client_secret",
+        "database_url",
+        "redis_url",
         "cron_secret",
         "metrics_internal_token",
         "auth_secret_key",
     }
 )
+
+
+def _redact_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return redact_sensitive_mapping(value)
+    if isinstance(value, list):
+        return [_redact_value(item) for item in value]
+    return value
 
 
 def redact_sensitive_mapping(payload: dict[str, Any]) -> dict[str, Any]:
@@ -32,10 +47,8 @@ def redact_sensitive_mapping(payload: dict[str, Any]) -> dict[str, Any]:
     for key, value in payload.items():
         if key.lower() in REDACTED_KEYS:
             sanitized[key] = "[REDACTED]"
-        elif isinstance(value, dict):
-            sanitized[key] = redact_sensitive_mapping(value)
         else:
-            sanitized[key] = value
+            sanitized[key] = _redact_value(value)
     return sanitized
 
 

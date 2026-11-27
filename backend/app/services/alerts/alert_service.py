@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import UTC, datetime, time, timedelta
 from typing import cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import structlog
+from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,8 +20,10 @@ from app.integrations.email.provider import (
     get_email_provider,
 )
 from app.models.community_alerts import AlertRule, Notification
+from app.models.identity import User
 from app.repositories.alerts_community_repository import AlertsCommunityRepository
 from app.repositories.identity_repository import IdentityRepository
+from app.schemas.air_quality import CurrentAirQualitySchema
 from app.schemas.alerts import (
     AlertChannelLiteral,
     AlertEvaluationSummarySchema,
@@ -74,14 +78,38 @@ def is_within_quiet_hours(
     return local_clock >= quiet_start or local_clock < quiet_end
 
 
+MAX_LOCAL_DEDUP_KEYS = 2048
+
+
 class AlertDeduplicator:
     """Redis SET-NX deduplicator with resilient in-memory fallback for tests/local dev."""
 
     def __init__(self) -> None:
         self._local_keys: dict[str, float] = {}
+        self._redis_client: Redis | None = None
+        self._redis_url_cached: str | None = None
+        self._redis_loop: asyncio.AbstractEventLoop | None = None
 
     def reset_local_state(self) -> None:
         self._local_keys.clear()
+        self._redis_client = None
+        self._redis_url_cached = None
+        self._redis_loop = None
+
+    def _get_redis(self, redis_url: str) -> Redis:
+        current_loop = asyncio.get_running_loop()
+        if (
+            self._redis_client is None
+            or self._redis_url_cached != redis_url
+            or self._redis_loop is not current_loop
+        ):
+            self._redis_client = create_async_redis_client(
+                redis_url,
+                decode_responses=True,
+            )
+            self._redis_url_cached = redis_url
+            self._redis_loop = current_loop
+        return self._redis_client
 
     async def acquire(
         self, *, settings: Settings, dedup_key: str, ttl_seconds: int
@@ -93,17 +121,19 @@ class AlertDeduplicator:
 
         if settings.app_env != "test" and settings.redis_url:
             try:
-                async with create_async_redis_client(
-                    settings.redis_url,
-                    decode_responses=True,
-                ) as redis:
-                    acquired = await redis.set(dedup_key, "1", ex=max(ttl_seconds, 60), nx=True)
-                    return bool(acquired)
+                redis = self._get_redis(settings.redis_url)
+                acquired = await redis.set(dedup_key, "1", ex=max(ttl_seconds, 60), nx=True)
+                return bool(acquired)
             except (RedisError, ValueError, RuntimeError) as exc:
+                self._redis_client = None
+                self._redis_loop = None
                 logger.warning("alert_dedup_redis_fallback", error_type=type(exc).__name__)
 
         if dedup_key in self._local_keys:
             return False
+        if len(self._local_keys) >= MAX_LOCAL_DEDUP_KEYS:
+            oldest_key = min(self._local_keys, key=lambda k: self._local_keys[k])
+            self._local_keys.pop(oldest_key, None)
         self._local_keys[dedup_key] = now_ts + max(ttl_seconds, 60)
         return True
 
@@ -412,6 +442,11 @@ class SmartAlertService:
         aq_service = AirQualityTelemetryService(self._session, self._settings)
         wx_service = WeatherTelemetryService(self._session, self._settings)
 
+        current_memo: dict[tuple[str, AQIStandard], CurrentAirQualitySchema | None] = {}
+        forecast_max_memo: dict[tuple[str, AQIStandard], int | None] = {}
+        inversion_memo: dict[str, bool] = {}
+        users_memo: dict[uuid.UUID, User | None] = {}
+
         triggered_count = 0
         suppressed_dedup_count = 0
         suppressed_quiet_count = 0
@@ -422,29 +457,39 @@ class SmartAlertService:
                 if rule.aqi_standard == AQIStandard.US_EPA.value
                 else AQIStandard.INDIA_NAQI
             )
-            try:
-                current = await aq_service.get_current_air_quality(city=rule.city, standard=std)
-            except ExternalProviderUnavailableError:
-                current = None
+            city_key = rule.city.strip().lower()
+            aq_memo_key = (city_key, std)
+            if aq_memo_key not in current_memo:
+                try:
+                    current_memo[aq_memo_key] = await aq_service.get_current_air_quality(
+                        city=rule.city, standard=std
+                    )
+                except ExternalProviderUnavailableError:
+                    current_memo[aq_memo_key] = None
+            current = current_memo[aq_memo_key]
 
             max_fc_aqi: int | None = None
             if rule.alert_type == "forecast_deterioration":
-                try:
-                    fc = await aq_service.get_air_quality_forecast(
-                        city=rule.city, standard=std, hours=24
-                    )
-                    valid_fc = [p.aqi for p in fc.points if p.aqi is not None]
-                    max_fc_aqi = max(valid_fc) if valid_fc else None
-                except ExternalProviderUnavailableError:
-                    max_fc_aqi = None
+                if aq_memo_key not in forecast_max_memo:
+                    try:
+                        fc = await aq_service.get_air_quality_forecast(
+                            city=rule.city, standard=std, hours=24
+                        )
+                        valid_fc = [p.aqi for p in fc.points if p.aqi is not None]
+                        forecast_max_memo[aq_memo_key] = max(valid_fc) if valid_fc else None
+                    except ExternalProviderUnavailableError:
+                        forecast_max_memo[aq_memo_key] = None
+                max_fc_aqi = forecast_max_memo[aq_memo_key]
 
             inv_risk = False
             if rule.alert_type == "clean_air_window":
-                try:
-                    wx = await wx_service.get_current_weather(city=rule.city)
-                    inv_risk = bool(wx.inversion_risk_flag)
-                except ExternalProviderUnavailableError:
-                    inv_risk = False
+                if city_key not in inversion_memo:
+                    try:
+                        wx = await wx_service.get_current_weather(city=rule.city)
+                        inversion_memo[city_key] = bool(wx.inversion_risk_flag)
+                    except ExternalProviderUnavailableError:
+                        inversion_memo[city_key] = False
+                inv_risk = inversion_memo[city_key]
 
             fired, state_sig, title, body, severity = self._evaluate_single_condition(
                 rule=rule,
@@ -501,7 +546,9 @@ class SmartAlertService:
             )
 
             deliveries: list[tuple[str, str, str | None, datetime | None]] = []
-            user = await self._identity_repo.get_user_by_id(rule.user_id)
+            if rule.user_id not in users_memo:
+                users_memo[rule.user_id] = await self._identity_repo.get_user_by_id(rule.user_id)
+            user = users_memo[rule.user_id]
             for ch in rule.channels:
                 if in_quiet and ch in {"email", "web_push"}:
                     deliveries.append((ch, "suppressed_quiet_hours", None, None))

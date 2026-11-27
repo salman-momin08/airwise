@@ -137,7 +137,7 @@ export function RegisterForm() {
         <button
           type="submit"
           disabled={registerMutation.isPending}
-          className="w-full rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60"
+          className="w-full rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60 dark:text-background"
         >
           {registerMutation.isPending ? "Creating account…" : "Create account"}
         </button>

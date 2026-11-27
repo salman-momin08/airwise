@@ -20,6 +20,7 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 DEFAULT_FRESH_TTL_SECONDS = 900
 DEFAULT_STALE_BACKUP_TTL_SECONDS = 12 * 3600
+MAX_LOCAL_CACHE_ENTRIES = 512
 
 
 @dataclass
@@ -141,6 +142,13 @@ class StaleAwareTelemetryCache:
     ) -> None:
         raw_json = payload.model_dump_json()
         now = time.monotonic()
+        if key not in self._memory and len(self._memory) >= MAX_LOCAL_CACHE_ENTRIES:
+            expired_keys = [k for k, item in self._memory.items() if item.stale_until <= now]
+            for k in expired_keys:
+                self._memory.pop(k, None)
+            if len(self._memory) >= MAX_LOCAL_CACHE_ENTRIES:
+                oldest_key = min(self._memory, key=lambda k: self._memory[k].stale_until)
+                self._memory.pop(oldest_key, None)
         self._memory[key] = _MemoryCacheItem(
             raw_json=raw_json,
             fresh_until=now + fresh_ttl_seconds,

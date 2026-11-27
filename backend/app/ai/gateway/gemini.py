@@ -67,8 +67,43 @@ class GeminiEmbeddingResponse(BaseModel):
     embedding: GeminiEmbedding
 
 
+_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/"
+_GEMINI_TIMEOUT = httpx.Timeout(20.0, connect=3.0)
+_GEMINI_LIMITS = httpx.Limits(max_keepalive_connections=10, max_connections=30)
+_shared_gemini_client: httpx.AsyncClient | None = None
+_shared_gemini_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _get_shared_gemini_client() -> httpx.AsyncClient:
+    global _shared_gemini_client, _shared_gemini_loop
+    current_loop = asyncio.get_running_loop()
+    if (
+        _shared_gemini_client is None
+        or _shared_gemini_client.is_closed
+        or _shared_gemini_loop is not current_loop
+    ):
+        _shared_gemini_client = httpx.AsyncClient(
+            base_url=_GEMINI_BASE_URL,
+            timeout=_GEMINI_TIMEOUT,
+            limits=_GEMINI_LIMITS,
+            follow_redirects=False,
+        )
+        _shared_gemini_loop = current_loop
+    return _shared_gemini_client
+
+
+async def close_gemini_http_client() -> None:
+    """Close pooled Gemini HTTP client on application shutdown."""
+    global _shared_gemini_client, _shared_gemini_loop
+    client = _shared_gemini_client
+    _shared_gemini_client = None
+    _shared_gemini_loop = None
+    if client is not None and not client.is_closed:
+        await client.aclose()
+
+
 class GeminiGateway:
-    """Backend-only Gemini REST adapter with bounded retries and a circuit breaker."""
+    """Backend-only Gemini REST adapter with pooled connections, retries, and circuit breaker."""
 
     _failures = 0
     _open_until = 0.0
@@ -86,6 +121,52 @@ class GeminiGateway:
         self.model_name = settings.gemini_model
         self.token_usage = 0
 
+    async def _post_with_client(
+        self,
+        client: httpx.AsyncClient,
+        model: str,
+        method: str,
+        body: dict[str, object],
+    ) -> httpx.Response:
+        req_headers = {"x-goog-api-key": self._settings.gemini_api_key}
+        for attempt in range(2):
+            if self._budget is not None:
+                # UTF-8 bytes conservatively bound input tokens; charge retries too.
+                await self._budget.reserve(
+                    len(str(body).encode("utf-8")) + self._settings.ai_max_output_tokens
+                )
+            try:
+                if method == "generateContent":
+                    telemetry_registry.llm_requests_total += 1
+                response = await client.post(
+                    f"models/{model}:{method}",
+                    headers=req_headers,
+                    json=body,
+                )
+                if response.status_code == 429 or response.status_code >= 500:
+                    if attempt == 0:
+                        retry_after = response.headers.get("Retry-After", "")
+                        delay = float(retry_after) if retry_after.isdecimal() else 0.5
+                        await asyncio.sleep(min(delay, 1.5))
+                        continue
+                response.raise_for_status()
+                type(self)._failures = 0
+                return response
+            except (httpx.HTTPError, httpx.InvalidURL) as exc:
+                # Exception strings can include request details: log only the class.
+                logger.warning("gemini_request_failed", error_type=type(exc).__name__)
+                if attempt == 0 and isinstance(exc, httpx.TransportError):
+                    await asyncio.sleep(0.5)
+                    continue
+                type(self)._failures += 1
+                if type(self)._failures >= 3:
+                    type(self)._open_until = time.monotonic() + 30
+                raise ExternalProviderUnavailableError(
+                    code="AI_PROVIDER_UNAVAILABLE",
+                    message="Gemini is temporarily unavailable.",
+                ) from None
+        raise RuntimeError("Gemini request loop ended unexpectedly.")
+
     async def _post(self, model: str, method: str, body: dict[str, object]) -> httpx.Response:
         if not self._settings.gemini_api_key:
             raise ExternalProviderUnavailableError(
@@ -96,46 +177,18 @@ class GeminiGateway:
                 code="AI_CIRCUIT_OPEN",
                 message="Gemini is temporarily unavailable; try again shortly.",
             )
-        async with httpx.AsyncClient(
-            base_url="https://generativelanguage.googleapis.com/v1beta/",
-            headers={"x-goog-api-key": self._settings.gemini_api_key},
-            timeout=httpx.Timeout(20.0, connect=3.0),
-            follow_redirects=False,
-            transport=self._transport,
-        ) as client:
-            for attempt in range(2):
-                if self._budget is not None:
-                    # UTF-8 bytes conservatively bound input tokens; charge retries too.
-                    await self._budget.reserve(
-                        len(str(body).encode("utf-8")) + self._settings.ai_max_output_tokens
-                    )
-                try:
-                    if method == "generateContent":
-                        telemetry_registry.llm_requests_total += 1
-                    response = await client.post(f"models/{model}:{method}", json=body)
-                    if response.status_code == 429 or response.status_code >= 500:
-                        if attempt == 0:
-                            retry_after = response.headers.get("Retry-After", "")
-                            delay = float(retry_after) if retry_after.isdecimal() else 0.5
-                            await asyncio.sleep(min(delay, 1.5))
-                            continue
-                    response.raise_for_status()
-                    type(self)._failures = 0
-                    return response
-                except (httpx.HTTPError, httpx.InvalidURL) as exc:
-                    # Exception strings can include request details: log only the class.
-                    logger.warning("gemini_request_failed", error_type=type(exc).__name__)
-                    if attempt == 0 and isinstance(exc, httpx.TransportError):
-                        await asyncio.sleep(0.5)
-                        continue
-                    type(self)._failures += 1
-                    if type(self)._failures >= 3:
-                        type(self)._open_until = time.monotonic() + 30
-                    raise ExternalProviderUnavailableError(
-                        code="AI_PROVIDER_UNAVAILABLE",
-                        message="Gemini is temporarily unavailable.",
-                    ) from None
-        raise RuntimeError("Gemini request loop ended unexpectedly.")
+        if self._transport is not None:
+            async with httpx.AsyncClient(
+                base_url=_GEMINI_BASE_URL,
+                timeout=_GEMINI_TIMEOUT,
+                follow_redirects=False,
+                transport=self._transport,
+            ) as isolated_client:
+                return await self._post_with_client(isolated_client, model, method, body)
+
+        return await self._post_with_client(
+            _get_shared_gemini_client(), model, method, body
+        )
 
     async def generate(self, *, system: str, prompt: str, schema: type[OutputModel]) -> OutputModel:
         if len(prompt) > 24000 or len(system) > 12000:

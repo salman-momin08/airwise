@@ -169,3 +169,21 @@ async def test_vercel_cron_endpoint_enforces_bearer_secret(api_client: AsyncClie
     )
     assert ok.status_code == 200
     assert ok.json()["data"]["status"] == "completed"
+
+
+async def test_http_security_headers_and_sensitive_cache_control(
+    api_client: AsyncClient,
+) -> None:
+    live = await api_client.get("/health/live")
+    assert live.status_code == 200
+    assert live.headers["X-Content-Type-Options"] == "nosniff"
+    assert live.headers["X-Frame-Options"] == "DENY"
+    assert live.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+    assert live.headers["Cross-Origin-Opener-Policy"] == "same-origin"
+    assert live.headers["Cross-Origin-Resource-Policy"] == "same-site"
+    assert "default-src 'none'" in live.headers["Content-Security-Policy"]
+
+    me_res = await api_client.get("/api/v1/auth/me")
+    assert me_res.status_code == 200
+    assert me_res.headers["Cache-Control"] == "no-store"
+

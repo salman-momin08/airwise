@@ -114,7 +114,7 @@ export function TransportWorkspace() {
               id="tx-city"
               {...form.register("city")}
               aria-invalid={Boolean(errors.city)}
-              aria-describedby="tx-city-error"
+              aria-describedby={errors.city ? "tx-city-error" : undefined}
               className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-sm"
             />
             {errors.city ? (
@@ -148,7 +148,7 @@ export function TransportWorkspace() {
               step="0.5"
               {...form.register("distance_km")}
               aria-invalid={Boolean(errors.distance_km)}
-              aria-describedby="tx-distance-error"
+              aria-describedby={errors.distance_km ? "tx-distance-error" : undefined}
               className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-sm"
             />
             {errors.distance_km ? (
@@ -227,7 +227,7 @@ export function TransportWorkspace() {
                 {logMutation.isPending ? "Logging..." : "Log This Trip to My Impact Tracker"}
               </button>
               {loggedNote ? (
-                <span role="status" className="text-xs font-medium text-brand-secondary">
+                <span role="status" className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
                   {loggedNote}
                 </span>
               ) : null}

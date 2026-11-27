@@ -51,7 +51,7 @@ export function DashboardAqiSnapshot() {
           />
           <Link
             href="/dashboard/air-quality"
-            className="rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white"
+            className="rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white dark:text-background"
           >
             Inspect Trends &amp; Map
           </Link>

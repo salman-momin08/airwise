@@ -119,7 +119,7 @@ export function IndoorAirWorkspace() {
               step="0.5"
               {...form.register("room_area_m2")}
               aria-invalid={Boolean(errors.room_area_m2)}
-              aria-describedby="iaq-area-error"
+              aria-describedby={errors.room_area_m2 ? "iaq-area-error" : undefined}
               className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-sm"
             />
             {errors.room_area_m2 ? (
@@ -139,7 +139,7 @@ export function IndoorAirWorkspace() {
               step="0.1"
               {...form.register("ceiling_height_m")}
               aria-invalid={Boolean(errors.ceiling_height_m)}
-              aria-describedby="iaq-height-error"
+              aria-describedby={errors.ceiling_height_m ? "iaq-height-error" : undefined}
               className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-sm"
             />
             {errors.ceiling_height_m ? (
@@ -159,7 +159,7 @@ export function IndoorAirWorkspace() {
               step="10"
               {...form.register("cadr_m3_per_hour")}
               aria-invalid={Boolean(errors.cadr_m3_per_hour)}
-              aria-describedby="iaq-cadr-error"
+              aria-describedby={errors.cadr_m3_per_hour ? "iaq-cadr-error" : undefined}
               className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-sm"
             />
             {errors.cadr_m3_per_hour ? (

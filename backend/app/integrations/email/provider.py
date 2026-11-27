@@ -1,3 +1,5 @@
+"""Console and Resend HTTPS transactional email adapters with secret-safe error handling."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,14 +15,17 @@ logger = structlog.get_logger(__name__)
 
 RESEND_API_URL = "https://api.resend.com/emails"
 
+
 @dataclass(frozen=True)
 class TransactionalEmailMessage:
     to_email: str
     subject: str
     text_body: str
 
+
 class EmailProvider(Protocol):
     async def send_email(self, message: TransactionalEmailMessage) -> str: ...
+
 
 class ConsoleEmailProvider:
     """Development & test email sink that records redacted delivery metadata without leaking PII."""
@@ -34,6 +39,7 @@ class ConsoleEmailProvider:
                 self.last_outbox.pop(0)
         logger.info("transactional_email_dispatched_console", subject=message.subject)
         return "console-delivery"
+
 
 class ResendEmailProvider:
     """Zero-cost friendly transactional email adapter via Resend HTTPS API."""
@@ -70,6 +76,7 @@ class ResendEmailProvider:
                     code="EMAIL_PROVIDER_UNAVAILABLE",
                     message="Transactional email delivery is temporarily unavailable.",
                 ) from exc
+
 
 def get_email_provider() -> EmailProvider:
     settings = get_settings()

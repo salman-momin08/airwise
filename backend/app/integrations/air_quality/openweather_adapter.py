@@ -1,3 +1,5 @@
+"""OpenWeather Air Pollution API current, forecast, and historical telemetry adapter."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -28,6 +30,7 @@ _COMPONENT_KEYS: tuple[tuple[str, PollutantCode], ...] = (
     ("so2", PollutantCode.SO2),
     ("o3", PollutantCode.O3),
 )
+
 
 class OpenWeatherAirQualityAdapter:
     """OpenWeather Air Pollution API adapter (explicitly labeled source_type='model')."""
@@ -77,7 +80,7 @@ class OpenWeatherAirQualityAdapter:
         )
         entries = body.get("list")
         if not isinstance(entries, list) or not entries:
-            raise ExternalProviderUnavailableError()
+            raise ExternalProviderUnavailableError
         first = entries[0]
         dt_epoch = first.get("dt")
         measured_at = (
@@ -118,9 +121,7 @@ class OpenWeatherAirQualityAdapter:
             )
         ]
 
-    async def fetch_city_forecast(
-        self, city: str, hours: int = 24
-    ) -> NormalizedForecastPayload:
+    async def fetch_city_forecast(self, city: str, hours: int = 24) -> NormalizedForecastPayload:
         centroid = require_city_centroid(city)
         body = await fetch_json_with_resilience(
             f"{self.BASE_URL}/forecast",
@@ -133,7 +134,7 @@ class OpenWeatherAirQualityAdapter:
         )
         entries = body.get("list")
         if not isinstance(entries, list) or not entries:
-            raise ExternalProviderUnavailableError()
+            raise ExternalProviderUnavailableError
 
         now = datetime.now(tz=UTC)
         cutoff = now + timedelta(hours=max(6, min(72, hours)))
@@ -186,7 +187,7 @@ class OpenWeatherAirQualityAdapter:
         )
         entries = body.get("list")
         if not isinstance(entries, list):
-            raise ExternalProviderUnavailableError()
+            raise ExternalProviderUnavailableError
 
         points = [
             NormalizedHistoryPoint(
@@ -206,6 +207,7 @@ class OpenWeatherAirQualityAdapter:
             is_development_fixture=False,
             points=points,
         )
+
 
 class CPCBRegionalAdapter:
     """CPCB / data.gov.in regional feed adapter interface."""
@@ -230,9 +232,7 @@ class CPCBRegionalAdapter:
         await self.fetch_city_measurements(city)
         return []
 
-    async def fetch_city_forecast(
-        self, city: str, hours: int = 24
-    ) -> NormalizedForecastPayload:
+    async def fetch_city_forecast(self, city: str, hours: int = 24) -> NormalizedForecastPayload:
         raise ExternalProviderUnavailableError(
             code="CPCB_FORECAST_UNSUPPORTED",
             message=f"CPCB feed does not publish {hours}h forecasts for {city}.",

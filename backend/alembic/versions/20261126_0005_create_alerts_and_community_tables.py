@@ -1,4 +1,4 @@
-"""Create smart alert rules, notifications, deliveries, communities, memberships, initiatives, participation, and abuse reports tables.
+"""Create alert rules, notifications, deliveries, communities, initiatives, and reports tables.
 
 Revision ID: 20261126_0005
 Revises: 20261126_0004
@@ -10,13 +10,15 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = "20261126_0005"
 down_revision: str | None = "20261126_0004"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
+
 
 def upgrade() -> None:
     is_pg = op.get_bind().dialect.name == "postgresql"
@@ -67,9 +69,7 @@ def upgrade() -> None:
         sa.Column("read_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_index(
-        "ix_notifications_user_created", "notifications", ["user_id", "created_at"]
-    )
+    op.create_index("ix_notifications_user_created", "notifications", ["user_id", "created_at"])
     op.create_index("ix_notifications_user_dedup", "notifications", ["user_id", "dedup_key"])
 
     op.create_table(
@@ -172,9 +172,7 @@ def upgrade() -> None:
         ),
         sa.Column("user_id", sa.Uuid(as_uuid=True), sa.ForeignKey("users.id"), nullable=True),
         sa.Column("self_reported_actions_count", sa.Integer(), nullable=False),
-        sa.Column(
-            "estimated_avoided_co2e_kg", sa.Float(), nullable=False, server_default="0.0"
-        ),
+        sa.Column("estimated_avoided_co2e_kg", sa.Float(), nullable=False, server_default="0.0"),
         sa.Column("note", sa.String(length=280), nullable=True),
         sa.Column(
             "moderation_status", sa.String(length=24), nullable=False, server_default="approved"
@@ -222,25 +220,20 @@ def upgrade() -> None:
         ["status", "created_at"],
     )
 
+
 def downgrade() -> None:
     op.drop_index("ix_community_abuse_reports_status", table_name="community_abuse_reports")
     op.drop_table("community_abuse_reports")
-    op.drop_index(
-        "ix_community_participation_initiative", table_name="community_participation"
-    )
+    op.drop_index("ix_community_participation_initiative", table_name="community_participation")
     op.drop_table("community_participation")
-    op.drop_index(
-        "ix_community_initiatives_comm_status", table_name="community_initiatives"
-    )
+    op.drop_index("ix_community_initiatives_comm_status", table_name="community_initiatives")
     op.drop_table("community_initiatives")
     op.drop_index("ix_community_members_user_id", table_name="community_members")
     op.drop_table("community_members")
     op.drop_index("ix_communities_city", table_name="communities")
     op.drop_index("ix_communities_slug", table_name="communities")
     op.drop_table("communities")
-    op.drop_index(
-        "ix_notification_deliveries_notif_id", table_name="notification_deliveries"
-    )
+    op.drop_index("ix_notification_deliveries_notif_id", table_name="notification_deliveries")
     op.drop_table("notification_deliveries")
     op.drop_index("ix_notifications_user_dedup", table_name="notifications")
     op.drop_index("ix_notifications_user_created", table_name="notifications")

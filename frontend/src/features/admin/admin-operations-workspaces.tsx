@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Administrative data-source catalog, RAG knowledge status, AI telemetry, and audit-log workspaces.
+ */
+
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { trustedCitationUrl } from "@/components/assistant/guidance-card";
@@ -338,13 +342,24 @@ export function AdminAuditLogsWorkspace() {
           <p className="text-sm text-text-secondary">No matching audit log events.</p>
         ) : (
           <table className="w-full text-left text-xs">
+            <caption className="sr-only">Security and administrative audit log events</caption>
             <thead>
               <tr className="border-b border-border text-text-secondary">
-                <th className="py-2 pr-4">Timestamp</th>
-                <th className="py-2 pr-4">Action</th>
-                <th className="py-2 pr-4">Target</th>
-                <th className="py-2 pr-4">Actor ID</th>
-                <th className="py-2">Redacted Metadata</th>
+                <th scope="col" className="py-2 pr-4">
+                  Timestamp
+                </th>
+                <th scope="col" className="py-2 pr-4">
+                  Action
+                </th>
+                <th scope="col" className="py-2 pr-4">
+                  Target
+                </th>
+                <th scope="col" className="py-2 pr-4">
+                  Actor ID
+                </th>
+                <th scope="col" className="py-2">
+                  Redacted Metadata
+                </th>
               </tr>
             </thead>
             <tbody>

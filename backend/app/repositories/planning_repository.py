@@ -1,3 +1,5 @@
+"""User-scoped repository for routines, recommendations, user actions, and impact estimates."""
+
 from __future__ import annotations
 
 import uuid
@@ -18,15 +20,14 @@ from app.models.planning import (
     UserAction,
 )
 
+
 class PlanningRepository:
     """Async SQLAlchemy 2.x repository enforcing strict object-level user_id ownership."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def list_emission_factors(
-        self, *, category: str | None = None
-    ) -> list[EmissionFactor]:
+    async def list_emission_factors(self, *, category: str | None = None) -> list[EmissionFactor]:
         stmt = select(EmissionFactor).where(EmissionFactor.is_active.is_(True))
         if category is not None:
             stmt = stmt.where(EmissionFactor.category == category)
@@ -56,9 +57,7 @@ class PlanningRepository:
         effective_year: int,
     ) -> EmissionFactor:
         existing = await self._session.scalar(
-            select(EmissionFactor).where(
-                EmissionFactor.mode_or_region_code == mode_or_region_code
-            )
+            select(EmissionFactor).where(EmissionFactor.mode_or_region_code == mode_or_region_code)
         )
         if existing is None:
             existing = EmissionFactor(
@@ -158,9 +157,7 @@ class PlanningRepository:
         await self._session.flush()
         return record
 
-    async def list_user_actions(
-        self, *, user_id: uuid.UUID, limit: int = 100
-    ) -> list[UserAction]:
+    async def list_user_actions(self, *, user_id: uuid.UUID, limit: int = 100) -> list[UserAction]:
         stmt = (
             select(UserAction)
             .options(selectinload(UserAction.estimates))
@@ -183,9 +180,7 @@ class PlanningRepository:
         rows = await self._session.scalars(stmt)
         return list(rows.all())
 
-    async def list_routines(
-        self, *, user_id: uuid.UUID, limit: int = 30
-    ) -> list[DailyRoutine]:
+    async def list_routines(self, *, user_id: uuid.UUID, limit: int = 30) -> list[DailyRoutine]:
         stmt = (
             select(DailyRoutine)
             .options(selectinload(DailyRoutine.activities))
@@ -196,9 +191,7 @@ class PlanningRepository:
         rows = await self._session.scalars(stmt)
         return list(rows.all())
 
-    async def require_routine(
-        self, *, user_id: uuid.UUID, routine_id: uuid.UUID
-    ) -> DailyRoutine:
+    async def require_routine(self, *, user_id: uuid.UUID, routine_id: uuid.UUID) -> DailyRoutine:
         routine = await self._session.scalar(
             select(DailyRoutine)
             .execution_options(populate_existing=True)
@@ -286,9 +279,7 @@ class PlanningRepository:
         status: str,
         note: str | None,
     ) -> RecommendationFeedback:
-        await self.require_recommendation(
-            user_id=user_id, recommendation_id=recommendation_id
-        )
+        await self.require_recommendation(user_id=user_id, recommendation_id=recommendation_id)
         feedback = RecommendationFeedback(
             id=uuid.uuid4(),
             recommendation_id=recommendation_id,
@@ -311,16 +302,12 @@ class PlanningRepository:
                 )
             )
         )
-        await self._session.execute(
-            delete(Recommendation).where(Recommendation.user_id == user_id)
-        )
+        await self._session.execute(delete(Recommendation).where(Recommendation.user_id == user_id))
         user_routines = select(DailyRoutine.id).where(DailyRoutine.user_id == user_id)
         await self._session.execute(
             delete(RoutineActivity).where(RoutineActivity.routine_id.in_(user_routines))
         )
-        await self._session.execute(
-            delete(DailyRoutine).where(DailyRoutine.user_id == user_id)
-        )
+        await self._session.execute(delete(DailyRoutine).where(DailyRoutine.user_id == user_id))
         user_actions = select(UserAction.id).where(UserAction.user_id == user_id)
         await self._session.execute(
             delete(ImpactEstimate).where(
@@ -330,9 +317,7 @@ class PlanningRepository:
                 )
             )
         )
-        await self._session.execute(
-            delete(UserAction).where(UserAction.user_id == user_id)
-        )
+        await self._session.execute(delete(UserAction).where(UserAction.user_id == user_id))
 
     async def export_user_data(
         self, *, user_id: uuid.UUID

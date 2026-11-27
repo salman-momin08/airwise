@@ -1,3 +1,5 @@
+"""Exposure-first, anti-fabrication system prompt definitions for AirWise Copilot."""
+
 from __future__ import annotations
 
 PROMPT_VERSION = "airwise-copilot-v1.0.0"

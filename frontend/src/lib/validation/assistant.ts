@@ -1,3 +1,7 @@
+/**
+ * Zod schema enforcing Copilot question length and mandatory per-turn AI consent.
+ */
+
 import { z } from "zod";
 
 const standardSchema = z.enum(["india_naqi", "us_epa"]);

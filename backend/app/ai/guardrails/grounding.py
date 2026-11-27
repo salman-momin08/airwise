@@ -1,3 +1,5 @@
+"""Prompt-injection screening and post-generation numerical/scientific grounding validators."""
+
 from __future__ import annotations
 
 import re
@@ -26,11 +28,14 @@ _INJECTION = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
+
 def minimize_text(text: str) -> str:
     return _PRIVATE_INPUT.sub("[private detail removed]", text)
 
+
 def is_injection(text: str) -> bool:
     return bool(_INJECTION.search(text))
+
 
 def verify_guidance(
     generated: GeneratedGuidance, evidence: list[RetrievedEvidence], safety: SafetyEvaluation
@@ -63,8 +68,10 @@ def verify_guidance(
         r"plants?.{0,40}(?:remove|clean|purif|filter)",
         r"(?:use|buy|recommend|install).{0,20}ozone",
         r"(?:eliminate|remove).{0,10}(?:all|every).{0,15}exposure",
-        r"(?:purifier|household|your action).{0,60}(?:reduce|lower|drop).{0,20}"
-        r"(?:street|city|outdoor|ambient).{0,15}(?:aqi|pollution)",
+        (
+            r"(?:purifier|household|your action).{0,60}(?:reduce|lower|drop).{0,20}"
+            r"(?:street|city|outdoor|ambient).{0,15}(?:aqi|pollution)"
+        ),
         r"indoor (?:air|aqi).{0,20}(?:is safe|is clean|is good|\bmeasured\b)",
         r"(?:cure|prevent|eliminate).{0,30}(?:asthma|cancer|heart disease|all risk)",
     )

@@ -1,3 +1,5 @@
+"""Provider-neutral air quality telemetry models, city centroids, and adapter protocol."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,6 +11,7 @@ from app.services.air_quality.aqi_calculator import PollutantCode
 
 STALE_MEASUREMENT_MAX_AGE_SECONDS = 3 * 3600
 
+
 @dataclass(frozen=True)
 class CityCentroid:
     city: str
@@ -17,6 +20,7 @@ class CityCentroid:
     latitude: float
     longitude: float
     timezone: str
+
 
 CITY_COORDINATE_GAZETTEER: dict[str, CityCentroid] = {
     "delhi": CityCentroid("Delhi", "NCT of Delhi", "IN", 28.6139, 77.2090, "Asia/Kolkata"),
@@ -31,8 +35,10 @@ CITY_COORDINATE_GAZETTEER: dict[str, CityCentroid] = {
     "lucknow": CityCentroid("Lucknow", "Uttar Pradesh", "IN", 26.8467, 80.9462, "Asia/Kolkata"),
 }
 
+
 def lookup_city_centroid(city: str) -> CityCentroid | None:
     return CITY_COORDINATE_GAZETTEER.get(city.strip().lower())
+
 
 def require_city_centroid(city: str) -> CityCentroid:
     centroid = lookup_city_centroid(city)
@@ -43,10 +49,12 @@ def require_city_centroid(city: str) -> CityCentroid:
         )
     return centroid
 
+
 def is_timestamp_stale(measured_at: datetime, now: datetime | None = None) -> bool:
     ref = now or datetime.now(tz=UTC)
     ts = measured_at if measured_at.tzinfo else measured_at.replace(tzinfo=UTC)
     return (ref - ts).total_seconds() > STALE_MEASUREMENT_MAX_AGE_SECONDS
+
 
 def forecast_confidence_for_delta_hours(
     delta_hours: float,
@@ -56,6 +64,7 @@ def forecast_confidence_for_delta_hours(
     if delta_hours <= 36:
         return "medium"
     return "low"
+
 
 @dataclass(frozen=True)
 class NormalizedStationTelemetry:
@@ -73,6 +82,7 @@ class NormalizedStationTelemetry:
     is_development_fixture: bool
     measurements: dict[PollutantCode, tuple[float, str]]
 
+
 @dataclass(frozen=True)
 class NormalizedProviderPayload:
     city: str
@@ -83,11 +93,13 @@ class NormalizedProviderPayload:
     is_development_fixture: bool
     measurements: dict[PollutantCode, tuple[float, str]]
 
+
 @dataclass(frozen=True)
 class NormalizedForecastSlice:
     forecast_for: datetime
     measurements: dict[PollutantCode, tuple[float, str]]
     confidence_level: Literal["low", "medium", "high"]
+
 
 @dataclass(frozen=True)
 class NormalizedForecastPayload:
@@ -99,10 +111,12 @@ class NormalizedForecastPayload:
     is_development_fixture: bool
     slices: list[NormalizedForecastSlice]
 
+
 @dataclass(frozen=True)
 class NormalizedHistoryPoint:
     timestamp: datetime
     measurements: dict[PollutantCode, tuple[float, str]]
+
 
 @dataclass(frozen=True)
 class NormalizedHistoryPayload:
@@ -112,6 +126,7 @@ class NormalizedHistoryPayload:
     is_stale: bool
     is_development_fixture: bool
     points: list[NormalizedHistoryPoint]
+
 
 class AirQualityProviderAdapter(Protocol):
     provider_slug: str

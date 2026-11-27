@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Administrative platform overview metrics, runtime advisories, and RBAC user management.
+ */
+
 import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -107,7 +111,11 @@ export function AdminOverviewWorkspace() {
       <section className="space-y-3 rounded-card border border-border bg-surface p-6">
         <h2 className="text-base font-semibold">Runtime System Settings</h2>
         <div className="flex flex-wrap gap-2">
+          <label htmlFor="admin-banner-input" className="sr-only">
+            Platform advisory notice
+          </label>
           <input
+            id="admin-banner-input"
             value={bannerText}
             onChange={(e) => setBannerText(e.target.value)}
             placeholder="Optional platform advisory notice..."
@@ -196,13 +204,24 @@ export function AdminUsersWorkspace() {
 
       <div className="overflow-x-auto rounded-card border border-border bg-surface p-5">
         <table className="w-full text-left text-xs">
+          <caption className="sr-only">Registered platform users, roles, and account status</caption>
           <thead>
             <tr className="border-b border-border text-text-secondary">
-              <th className="py-2 pr-4">Display Name</th>
-              <th className="py-2 pr-4">Email</th>
-              <th className="py-2 pr-4">Role</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2">Actions</th>
+              <th scope="col" className="py-2 pr-4">
+                Display Name
+              </th>
+              <th scope="col" className="py-2 pr-4">
+                Email
+              </th>
+              <th scope="col" className="py-2 pr-4">
+                Role
+              </th>
+              <th scope="col" className="py-2 pr-4">
+                Status
+              </th>
+              <th scope="col" className="py-2">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>

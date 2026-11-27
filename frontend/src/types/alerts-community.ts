@@ -1,3 +1,7 @@
+/**
+ * TypeScript DTO contracts for smart AQI alerts, deliveries, communities, and moderation.
+ */
+
 import type { AQIStandard } from "@/types/api";
 
 export type AlertType =

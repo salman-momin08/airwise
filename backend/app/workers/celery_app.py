@@ -1,3 +1,5 @@
+"""Celery application configuration, Redis broker bindings, and periodic beat schedule."""
+
 from __future__ import annotations
 
 from celery import Celery

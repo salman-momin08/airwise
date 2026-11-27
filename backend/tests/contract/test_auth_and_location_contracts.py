@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from httpx import AsyncClient
 
+
 async def test_api_v1_envelopes_and_vercel_entrypoint_export(api_client: AsyncClient) -> None:
     # Verify standardized success envelope on /api/v1/auth/me
     res = await api_client.get("/api/v1/auth/me", headers={"X-Request-ID": "bad-uuid"})
     assert res.status_code == 200
     body = res.json()
-    assert "data" in body and "meta" in body
-    assert "request_id" in body["meta"] and "timestamp" in body["meta"]
+    assert "data" in body
+    assert "meta" in body
+    assert "request_id" in body["meta"]
+    assert "timestamp" in body["meta"]
 
     # Verify standardized error envelope on validation failure
     bad = await api_client.post(

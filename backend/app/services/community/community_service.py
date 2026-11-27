@@ -1,3 +1,5 @@
+"""Neighborhood community groups, voluntary clean-air challenges, and abuse moderation service."""
+
 from __future__ import annotations
 
 import uuid
@@ -34,10 +36,12 @@ from app.schemas.impact import TransportImpactRequest
 from app.services.air_quality.aqi_calculator import AQIStandard
 from app.services.impact.impact_service import ImpactEngineService
 
+
 def _ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
 
 class CommunityService:
     """Service enforcing coarse neighborhood privacy, opt-in display consent, and moderation."""
@@ -126,9 +130,7 @@ class CommunityService:
         member_counts = await self._repo.count_members_batch(comm_ids)
         active_init_counts = await self._repo.count_active_initiatives_batch(comm_ids)
         memberships = (
-            await self._repo.get_memberships_batch(
-                community_ids=comm_ids, user_id=current_user_id
-            )
+            await self._repo.get_memberships_batch(community_ids=comm_ids, user_id=current_user_id)
             if current_user_id is not None
             else {}
         )
@@ -199,9 +201,7 @@ class CommunityService:
             ip_hash=hash_ip_address(client_ip, self._settings.auth_secret_key),
         )
         await self._session.commit()
-        return await self.get_community_detail(
-            community_id=comm.id, current_user_id=actor_user_id
-        )
+        return await self.get_community_detail(community_id=comm.id, current_user_id=actor_user_id)
 
     async def join_community(
         self,
@@ -217,9 +217,7 @@ class CommunityService:
             public_display_consent=payload.public_display_consent,
         )
         await self._session.commit()
-        return await self.get_community_detail(
-            community_id=community_id, current_user_id=user_id
-        )
+        return await self.get_community_detail(community_id=community_id, current_user_id=user_id)
 
     async def leave_community(
         self, *, user_id: uuid.UUID, community_id: uuid.UUID
@@ -252,9 +250,7 @@ class CommunityService:
     async def list_public_initiatives_for_ai(
         self, *, city: str | None = None
     ) -> list[CommunityInitiativeSchema]:
-        communities = {
-            c.id: c for c in await self._repo.list_communities(city=city)
-        }
+        communities = {c.id: c for c in await self._repo.list_communities(city=city)}
         rows = (await self._repo.list_initiatives(city=city, include_non_active=False))[:15]
         metrics_by_id = await self._repo.aggregate_initiatives_metrics_batch(
             {item.id for item in rows}
@@ -309,9 +305,7 @@ class CommunityService:
             ip_hash=hash_ip_address(client_ip, self._settings.auth_secret_key),
         )
         await self._session.commit()
-        return await self._serialize_initiative(
-            item, community_name=comm.name, city=comm.city
-        )
+        return await self._serialize_initiative(item, community_name=comm.name, city=comm.city)
 
     async def log_participation(
         self,
@@ -322,9 +316,7 @@ class CommunityService:
         payload: LogParticipationRequest,
     ) -> ParticipationReceiptSchema:
         await self._repo.require_community(community_id)
-        membership = await self._repo.get_membership(
-            community_id=community_id, user_id=user_id
-        )
+        membership = await self._repo.get_membership(community_id=community_id, user_id=user_id)
         if membership is None:
             raise AuthorizationError(
                 message="Join this neighborhood community before logging challenge actions.",
@@ -487,6 +479,4 @@ class CommunityService:
             ip_hash=hash_ip_address(client_ip, self._settings.auth_secret_key),
         )
         await self._session.commit()
-        return await self._serialize_initiative(
-            init, community_name=comm.name, city=comm.city
-        )
+        return await self._serialize_initiative(init, community_name=comm.name, city=comm.city)

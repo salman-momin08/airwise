@@ -3,16 +3,22 @@ import { ApiClientError } from "@/lib/api/client";
 
 interface WorkspaceSkeletonProps {
   className?: string;
+  label?: string;
 }
 
 export function WorkspaceSkeleton({
   className = "mt-6 h-56",
+  label = "Loading workspace content...",
 }: WorkspaceSkeletonProps) {
   return (
     <div
+      role="status"
+      aria-live="polite"
       aria-busy="true"
       className={`animate-pulse rounded-card border border-border bg-surface p-6 ${className}`}
-    />
+    >
+      <span className="sr-only">{label}</span>
+    </div>
   );
 }
 

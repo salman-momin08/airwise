@@ -1,3 +1,5 @@
+"""SQLAlchemy 2.x ORM model registry imported by Alembic migrations and repositories."""
+
 from __future__ import annotations
 
 from app.models.assistant import (

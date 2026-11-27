@@ -24,11 +24,13 @@ from app.schemas.assistant import ChatRequest, ToolCall
 from app.services.air_quality.aqi_calculator import AQIStandard
 from app.services.alerts.alert_service import SmartAlertService
 
+
 def _csrf(client: AsyncClient) -> dict[str, str]:
     return {
-        "X-CSRF-Token": client.cookies.get("airwise_csrf", ""),
+        "X-CSRF-Token": client.cookies.get("airwise_csrf") or "",
         "Origin": "http://localhost:3000",
     }
+
 
 async def _register(
     client: AsyncClient, email: str, display_name: str = "Test Resident"
@@ -45,19 +47,19 @@ async def _register(
     assert res.status_code == 201
     return uuid.UUID(str(res.json()["data"]["user_id"]))
 
+
 class _StubGateway:
     model_name = "gemini-stub"
     token_usage = 0
 
-    async def generate(
-        self, *, system: str, prompt: str, schema: type[OutputModel]
-    ) -> OutputModel:
+    async def generate(self, *, system: str, prompt: str, schema: type[OutputModel]) -> OutputModel:
         raise AssertionError("Not called in tool executor test.")
 
     async def embed(
         self, text: str, *, task: Literal["RETRIEVAL_QUERY", "RETRIEVAL_DOCUMENT"]
     ) -> list[float]:
         return [1.0] + [0.0] * 767
+
 
 async def test_alert_deduplication_quiet_hours_opt_out_and_idor_isolation(
     api_client: AsyncClient,
@@ -93,9 +95,7 @@ async def test_alert_deduplication_quiet_hours_opt_out_and_idor_isolation(
     daytime_utc = datetime(2026, 11, 26, 9, 0, tzinfo=UTC)
     async with AsyncSession(db_engine, expire_on_commit=False) as session:
         svc = SmartAlertService(session=session, settings=test_settings)
-        first_eval = await svc.evaluate_active_rules(
-            user_id=user_id, evaluation_time=daytime_utc
-        )
+        first_eval = await svc.evaluate_active_rules(user_id=user_id, evaluation_time=daytime_utc)
         assert first_eval.triggered_notifications == 1
         assert first_eval.suppressed_quiet_hours_deliveries == 0
         assert len(ConsoleEmailProvider.last_outbox) == 1
@@ -135,9 +135,7 @@ async def test_alert_deduplication_quiet_hours_opt_out_and_idor_isolation(
     overnight_utc = datetime(2026, 11, 26, 20, 0, tzinfo=UTC)
     async with AsyncSession(db_engine, expire_on_commit=False) as session:
         svc = SmartAlertService(session=session, settings=test_settings)
-        quiet_eval = await svc.evaluate_active_rules(
-            user_id=user_id, evaluation_time=overnight_utc
-        )
+        quiet_eval = await svc.evaluate_active_rules(user_id=user_id, evaluation_time=overnight_utc)
         assert quiet_eval.triggered_notifications == 1
         assert quiet_eval.suppressed_quiet_hours_deliveries == 2
         assert len(ConsoleEmailProvider.last_outbox) == 0
@@ -157,9 +155,7 @@ async def test_alert_deduplication_quiet_hours_opt_out_and_idor_isolation(
     assert mark_res.status_code == 200
     assert mark_res.json()["data"]["read_at"] is not None
 
-    opt_out = await api_client.post(
-        "/api/v1/alerts/unsubscribe-all", headers=_csrf(api_client)
-    )
+    opt_out = await api_client.post("/api/v1/alerts/unsubscribe-all", headers=_csrf(api_client))
     assert opt_out.status_code == 200
     assert opt_out.json()["data"]["disabled_rules_count"] == 2
 
@@ -186,6 +182,7 @@ async def test_alert_deduplication_quiet_hours_opt_out_and_idor_isolation(
         )
     ).status_code == 404
 
+
 async def test_community_privacy_consent_moderation_ai_tool_and_account_anonymization(
     api_client: AsyncClient,
     db_engine: AsyncEngine,
@@ -205,16 +202,14 @@ async def test_community_privacy_consent_moderation_ai_tool_and_account_anonymiz
     )
     assert forbidden_create.status_code == 403
     assert (await api_client.get("/api/v1/admin/community/reports")).status_code == 403
-    member_a_session = api_client.cookies.get("airwise_session", "")
-    member_a_csrf = api_client.cookies.get("airwise_csrf", "")
+    member_a_session = api_client.cookies.get("airwise_session") or ""
+    member_a_csrf = api_client.cookies.get("airwise_csrf") or ""
 
     # 2. Register Moderator user and promote role in DB
     api_client.cookies.clear()
     mod_id = await _register(api_client, "moderator@example.com", "Neighborhood Moderator")
     async with AsyncSession(db_engine, expire_on_commit=False) as session:
-        await session.execute(
-            update(User).where(User.id == mod_id).values(role="moderator")
-        )
+        await session.execute(update(User).where(User.id == mod_id).values(role="moderator"))
         await session.commit()
 
     comm_res = await api_client.post(
@@ -245,8 +240,8 @@ async def test_community_privacy_consent_moderation_ai_tool_and_account_anonymiz
     )
     assert init_res.status_code == 201
     init_id = init_res.json()["data"]["id"]
-    mod_session = api_client.cookies.get("airwise_session", "")
-    mod_csrf = api_client.cookies.get("airwise_csrf", "")
+    mod_session = api_client.cookies.get("airwise_session") or ""
+    mod_csrf = api_client.cookies.get("airwise_csrf") or ""
 
     # 3. Member A joins WITHOUT public display consent (default False) & logs action
     api_client.cookies.set("airwise_session", member_a_session)
@@ -279,8 +274,8 @@ async def test_community_privacy_consent_moderation_ai_tool_and_account_anonymiz
         headers=_csrf(api_client),
         json={"self_reported_actions_count": 3, "commute_distance_saved_km": 10.0},
     )
-    member_b_session = api_client.cookies.get("airwise_session", "")
-    member_b_csrf = api_client.cookies.get("airwise_csrf", "")
+    member_b_session = api_client.cookies.get("airwise_session") or ""
+    member_b_csrf = api_client.cookies.get("airwise_csrf") or ""
 
     # 5. Guest views public community dashboard -> sees OptIn Resident B ONLY, zero unconsented PII!
     api_client.cookies.clear()
@@ -310,7 +305,8 @@ async def test_community_privacy_consent_moderation_ai_tool_and_account_anonymiz
         comm_tool_res = await executor.execute(ToolCall(name="get_community_initiatives"))
         assert comm_tool_res["status"] == "available"
         inits_list = comm_tool_res["initiatives"]
-        assert isinstance(inits_list, list) and len(inits_list) == 1
+        assert isinstance(inits_list, list)
+        assert len(inits_list) == 1
         assert inits_list[0]["title"] == "No-Idling School Gate Week"
 
     # 7. Member B exports data & deletes account -> membership deleted, aggregate anonymized!

@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Compact dashboard snapshot of verified city AQI, dominant pollutant, and freshness.
+ */
+
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { AQIBadge } from "@/components/air-quality/aqi-badge";

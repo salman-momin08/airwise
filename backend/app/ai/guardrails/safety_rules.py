@@ -1,3 +1,5 @@
+"""Deterministic exposure-safety rules and prohibited scientific myth detectors."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -24,12 +26,14 @@ PROHIBITED_CLAIM_PATTERNS: tuple[str, ...] = (
     "eliminates all exposure",
 )
 
+
 @dataclass(frozen=True)
 class SafetyEvaluation:
     has_urgent_medical_flag: bool
     block_outdoor_exertion: bool
     block_active_outdoor_commute: bool
     mandatory_directives: tuple[str, ...]
+
 
 def evaluate_environmental_safety(
     *,
@@ -91,6 +95,7 @@ def evaluate_environmental_safety(
         block_active_outdoor_commute=block_active_commute,
         mandatory_directives=tuple(directives),
     )
+
 
 def contains_prohibited_scientific_claim(generated_text: str) -> bool:
     lowered = generated_text.lower()

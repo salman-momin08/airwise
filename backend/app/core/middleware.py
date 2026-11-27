@@ -1,3 +1,5 @@
+"""Request correlation ID, latency metrics, cache-control, and security headers middleware."""
+
 from __future__ import annotations
 
 import time
@@ -26,6 +28,7 @@ _NO_STORE_PATH_PREFIXES = (
 )
 _OPENAPI_DOC_PATHS = frozenset({"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"})
 
+
 class CorrelationAndSecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Attach correlation request IDs, latency metrics, and HTTP security headers."""
 
@@ -44,9 +47,7 @@ class CorrelationAndSecurityHeadersMiddleware(BaseHTTPMiddleware):
         started = time.perf_counter()
         response = await call_next(request)
         duration_ms = (time.perf_counter() - started) * 1000.0
-        telemetry_registry.record_request(
-            duration_ms=duration_ms, status_code=response.status_code
-        )
+        telemetry_registry.record_request(duration_ms=duration_ms, status_code=response.status_code)
 
         path = request.url.path
         response.headers[REQUEST_ID_HEADER] = request_id

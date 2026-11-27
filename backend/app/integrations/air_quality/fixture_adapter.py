@@ -1,3 +1,5 @@
+"""Explicitly labeled deterministic development/CI air quality fixture adapter."""
+
 from __future__ import annotations
 
 import math
@@ -17,6 +19,7 @@ from app.integrations.air_quality.models import (
     lookup_city_centroid,
 )
 from app.services.air_quality.aqi_calculator import PollutantCode
+
 
 class DevelopmentFixtureAirQualityAdapter:
     """Explicitly labeled development fixture adapter.
@@ -167,9 +170,7 @@ class DevelopmentFixtureAirQualityAdapter:
             for suffix, label, d_lat, d_lon, factor in offsets
         ]
 
-    async def fetch_city_forecast(
-        self, city: str, hours: int = 24
-    ) -> NormalizedForecastPayload:
+    async def fetch_city_forecast(self, city: str, hours: int = 24) -> NormalizedForecastPayload:
         centroid, sample = self._resolve_city_base(city)
         now = datetime.now(tz=UTC).replace(minute=0, second=0, microsecond=0)
         bounded_hours = max(6, min(72, hours))
@@ -178,9 +179,7 @@ class DevelopmentFixtureAirQualityAdapter:
         for step in range(1, bounded_hours + 1, 3):
             target_dt = now + timedelta(hours=step)
             ist_hour = (target_dt.hour + 5) % 24
-            diurnal_multiplier = (
-                0.78 if 12 <= ist_hour <= 16 else (1.16 if ist_hour <= 8 else 1.0)
-            )
+            diurnal_multiplier = 0.78 if 12 <= ist_hour <= 16 else (1.16 if ist_hour <= 8 else 1.0)
             slices.append(
                 NormalizedForecastSlice(
                     forecast_for=target_dt,

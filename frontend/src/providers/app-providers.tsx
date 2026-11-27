@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Root client providers wiring `next-themes` dark/light mode and TanStack Query caching.
+ */
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { useState, type ReactNode } from "react";

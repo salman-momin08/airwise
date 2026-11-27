@@ -1,3 +1,5 @@
+"""Session issuance, rotation, reuse detection, password reset, and email verification service."""
+
 from __future__ import annotations
 
 import uuid
@@ -38,6 +40,7 @@ EMAIL_VERIFICATION_TTL_HOURS = 24
 PASSWORD_RESET_TTL_MINUTES = 30
 SESSION_RETENTION_DAYS = 30
 
+
 @dataclass(frozen=True)
 class IssuedSessionBundle:
     principal: AuthPrincipalData
@@ -45,10 +48,12 @@ class IssuedSessionBundle:
     raw_csrf_token: str
     max_age_seconds: int
 
+
 def _ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
 
 def _to_principal_data(user: User, session_id: uuid.UUID) -> AuthPrincipalData:
     preferred_std = (
@@ -64,6 +69,7 @@ def _to_principal_data(user: User, session_id: uuid.UUID) -> AuthPrincipalData:
         preferred_aqi_standard=standard,
         session_id=str(session_id),
     )
+
 
 class AuthService:
     """Domain service for registration, login, session rotation, revocation, and resets."""
@@ -151,9 +157,7 @@ class AuthService:
         )
         await self._session.commit()
 
-        verify_link = (
-            f"{self._settings.frontend_url}/login?verify_token={raw_verify_token}"
-        )
+        verify_link = f"{self._settings.frontend_url}/login?verify_token={raw_verify_token}"
         await self._email_provider.send_email(
             TransactionalEmailMessage(
                 to_email=user.email,
@@ -371,9 +375,7 @@ class AuthService:
         )
         await self._session.commit()
 
-        reset_link = (
-            f"{self._settings.frontend_url}/forgot-password?token={raw_reset_token}"
-        )
+        reset_link = f"{self._settings.frontend_url}/forgot-password?token={raw_reset_token}"
         await self._email_provider.send_email(
             TransactionalEmailMessage(
                 to_email=user.email,
@@ -387,9 +389,7 @@ class AuthService:
             )
         )
 
-    async def reset_password(
-        self, payload: ResetPasswordRequest, *, client_ip: str | None
-    ) -> None:
+    async def reset_password(self, payload: ResetPasswordRequest, *, client_ip: str | None) -> None:
         token_digest = hash_token(payload.token, self._settings.auth_secret_key)
         token_record = await self._repo.get_valid_action_token(
             purpose="password_reset",

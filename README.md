@@ -237,7 +237,7 @@ The repository is structured and verified directly against the six core engineer
 | **1. Code Quality** | Strict unidirectional modular-monolith layering (`api` -> `services`/`ai` -> `repositories` -> `models`), single-responsibility provider adapters & modular React workspaces, shared DRY UI primitives, enforced cyclomatic complexity caps (`ruff` `C90` `max-complexity = 10` + `SIM`/`PIE`/`PERF`/`RUF`; `eslint --max-warnings=0` with `complexity <= 12`, `eqeqeq`, `no-console`), `mypy --strict`, strict `tsc --noEmit` across `src/`, `tests/`, and `e2e/`, and 6 Architecture Decision Records. | [`backend/app/`](./backend/app/), [`frontend/src/`](./frontend/src/), [`pyproject.toml`](./backend/pyproject.toml), [`eslint.config.mjs`](./frontend/eslint.config.mjs) |
 | **2. Security** | Argon2id hashing, `HttpOnly` + `SameSite=Lax` cookies, double-submit `X-CSRF-Token` + `Origin`/`Referer` checks, refresh rotation with replay-reuse revocation, repository-level `user_id` IDOR isolation, HTTPS host-allowlist SSRF guard, 12-tool AI allowlist + untrusted RAG delimiters + citation domain allowlist, HTTP security headers (`CSP`, `X-Frame-Options`, `nosniff`, `COOP`, `CORP`, `Permissions-Policy`, `Cache-Control: no-store`), `repr=False` secrets + recursive log redaction, non-root Dockerfiles, and **`0` `npm audit` vulnerabilities**. | [`security.py`](./backend/app/core/security.py), [`middleware.py`](./backend/app/core/middleware.py), [`http_resilience.py`](./backend/app/integrations/http_resilience.py), [`guidance-card.tsx`](./frontend/src/components/assistant/guidance-card.tsx) |
 | **3. Efficiency** | Batched SQL `GROUP BY` / `JOIN` queries eliminating `N+1` lookups (`list_stations_in_bbox` runs constant 2 `SELECT`s; batched community & initiative aggregations), memoized `(city, standard)` lookups in batch alert evaluation, loop-scoped pooled `httpx.AsyncClient` & Redis connections, stale-aware Redis cache with bounded `O(1)` local fallback eviction, serverless `NullPool` mode, sliding-window LLM token budgets, and Next.js `optimizePackageImports` + static route prerendering. | [`telemetry_repository.py`](./backend/app/repositories/telemetry_repository.py), [`cache.py`](./backend/app/services/air_quality/cache.py), [`budget.py`](./backend/app/ai/gateway/budget.py), [`next.config.ts`](./frontend/next.config.ts) |
-| **4. Testing** | Multi-layer test pyramid: **89 backend Pytest tests** (unit, integration, API contract, security/IDOR/CSRF/SSRF, and the 12-scenario AI safety/grounding evaluation suite), **27 frontend Vitest tests** (Zod schemas, SSE stream state machine, UI flows, null-data chart integrity, and `axe-core` WCAG 2.2 AA checks), and **Playwright Chromium E2E** covering the complete 13-step user journey. | [`backend/tests/`](./backend/tests/), [`frontend/tests/`](./frontend/tests/), [`frontend/e2e/`](./frontend/e2e/), [`ci.yml`](./.github/workflows/ci.yml) |
+| **4. Testing** | Multi-layer test pyramid: **92 backend Pytest tests** (unit, integration, API contract, security/IDOR/CSRF/SSRF, and the 12-scenario AI safety/grounding evaluation suite), **31 frontend Vitest tests** (Zod schemas, SSE stream state machine, API client/CSRF, error boundaries, UI flows, null-data chart integrity, and `axe-core` WCAG 2.2 AA checks), and **Playwright Chromium E2E** covering the complete 13-step user journey. | [`backend/tests/`](./backend/tests/), [`frontend/tests/`](./frontend/tests/), [`frontend/e2e/`](./frontend/e2e/), [`ci.yml`](./.github/workflows/ci.yml) |
 | **5. Accessibility** | WCAG 2.2 Level AA color tokens (`>= 4.5:1` verified mathematically across both Light and Dark themes), non-color-only `AQIBadge` (symbol + numeric value + category + standard + `role="status"`), universal skip link (`#main-content` across all routes), `:focus-visible` keyboard outlines, `prefers-reduced-motion` & `forced-colors` support, labeled forms (`aria-invalid` + valid `aria-describedby`), `aria-busy` skeletons, `aria-live` streaming status, and automated `axe-core` verification. | [`globals.css`](./frontend/src/app/globals.css), [`aqi-badge.tsx`](./frontend/src/components/air-quality/aqi-badge.tsx), [`accessibility-axe.test.tsx`](./frontend/tests/accessibility-axe.test.tsx) |
 | **6. Problem Statement Alignment** |Directly solves daily household smog decision-making by uniting standard-isolated AQI, exposure-first safety overrides, grounded RAG Copilot explanations, editable routine planning, transparent `CO2e`/`CADR` math, smart quiet-hour alerts, and privacy-safe neighborhood challenges under 15 non-negotiable domain invariants. | [`AGENTS.md`](./AGENTS.md), [`docs/prd.md`](./docs/prd.md), [`docs/safety.md`](./docs/safety.md) |
 
@@ -436,11 +436,11 @@ Commands below use **Windows PowerShell**, starting at the repository root unles
 
 This follows the repository's CI demo approach. It avoids a local PostgreSQL/Redis requirement and is useful for UI and deterministic-flow development. **It does not validate PostGIS, vector retrieval, live Gemini, production provider data, or scheduled delivery.**
 
-Initialize environment files once; do not overwrite an existing customized file:
+Initialize the unified environment file once; do not overwrite an existing customized file:
 
 ```powershell
-Copy-Item .\backend\.env.example .\backend\.env
-Copy-Item .\frontend\.env.example .\frontend\.env.local
+if (-not (Test-Path .\.env)) { Copy-Item .\.env.example .\.env }
+if (-not (Test-Path .\frontend\.env.local)) { Select-String '^NEXT_PUBLIC_' .\.env.example | ForEach-Object { $_.Line } | Set-Content .\frontend\.env.local }
 ```
 
 In the backend terminal:
@@ -508,7 +508,7 @@ The included Beat schedule polls priority-city AQI and evaluates alerts every 15
 
 **The checked-in Compose stack is not a guaranteed one-command complete setup.** Two details require attention:
 
-1. Backend/worker/scheduler currently read the backend **example** environment file, not your customized backend environment file. Frontend reads its example file too.
+1. Backend/worker/scheduler/frontend read the unified root [`.env.example`](./.env.example) template by default rather than your untracked `.env` file.
 2. The default `postgis/postgis:16-3.4` image must not be assumed to contain pgvector. Initialization enables `vector` only if available, while the assistant migration requires it.
 
 Before starting, provide a PostgreSQL image with both PostGIS and pgvector available. If using a local `docker-compose.override.yml`, the following illustrates the necessary overrides. **Replace the image placeholder with an image you have built or verified.** This snippet is documentation, not an additional checked-in configuration:
@@ -569,7 +569,7 @@ Open `/air-quality`, choose a city/standard, and confirm the development fixture
 
 ## 12. Configuration and live integrations
 
-Use the [backend environment template](./backend/.env.example) and [frontend environment template](./frontend/.env.example) as starting points. The [settings model](./backend/app/core/config.py) defines accepted values and startup checks.
+Use the unified root [environment template](./.env.example) as the starting point. The [settings model](./backend/app/core/config.py) defines accepted values and startup checks.
 
 | Setting | Purpose / important constraint |
 | :--- | :--- |

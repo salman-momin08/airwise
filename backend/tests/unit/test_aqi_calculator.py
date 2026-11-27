@@ -8,6 +8,7 @@ from app.services.air_quality.aqi_calculator import (
     calculate_aqi,
 )
 
+
 class TestAQICalculatorStandardsIsolation(unittest.TestCase):
     def test_india_naqi_requires_three_pollutants_including_pm(self) -> None:
         only_two = {
@@ -15,9 +16,9 @@ class TestAQICalculatorStandardsIsolation(unittest.TestCase):
             PollutantCode.NO2: (60.0, "ug/m3"),
         }
         result = calculate_aqi(AQIStandard.INDIA_NAQI, only_two)
-        self.assertEqual(result.status, "unavailable")
-        self.assertIsNone(result.aqi)
-        self.assertIn("at least 3 valid pollutants", result.unavailable_reason or "")
+        assert result.status == "unavailable"
+        assert result.aqi is None
+        assert "at least 3 valid pollutants" in (result.unavailable_reason or "")
 
     def test_india_naqi_without_pm_returns_unavailable(self) -> None:
         no_pm = {
@@ -26,8 +27,8 @@ class TestAQICalculatorStandardsIsolation(unittest.TestCase):
             PollutantCode.O3: (40.0, "ug/m3"),
         }
         result = calculate_aqi(AQIStandard.INDIA_NAQI, no_pm)
-        self.assertEqual(result.status, "unavailable")
-        self.assertIsNone(result.aqi)
+        assert result.status == "unavailable"
+        assert result.aqi is None
 
     def test_same_pm25_concentration_yields_distinct_standard_results(self) -> None:
         # 90 ug/m3 PM2.5 = top of Moderate (200) in India NAQI, but Unhealthy (~174) in US EPA 2024
@@ -39,21 +40,22 @@ class TestAQICalculatorStandardsIsolation(unittest.TestCase):
         india_res = calculate_aqi(AQIStandard.INDIA_NAQI, readings)
         epa_res = calculate_aqi(AQIStandard.US_EPA, readings)
 
-        self.assertEqual(india_res.status, "available")
-        self.assertEqual(india_res.aqi, 200)
-        self.assertEqual(india_res.category, "Moderate")
-        self.assertEqual(india_res.dominant_pollutant, PollutantCode.PM25)
+        assert india_res.status == "available"
+        assert india_res.aqi == 200
+        assert india_res.category == "Moderate"
+        assert india_res.dominant_pollutant == PollutantCode.PM25
 
-        self.assertEqual(epa_res.status, "available")
-        self.assertEqual(epa_res.aqi, 175)
-        self.assertEqual(epa_res.category, "Unhealthy")
-        self.assertNotEqual(india_res.category, epa_res.category)
+        assert epa_res.status == "available"
+        assert epa_res.aqi == 175
+        assert epa_res.category == "Unhealthy"
+        assert india_res.category != epa_res.category
 
     def test_incompatible_units_are_never_silently_mixed(self) -> None:
         wrong_unit = {PollutantCode.PM25: (50.0, "ppb")}
         epa_res = calculate_aqi(AQIStandard.US_EPA, wrong_unit)
-        self.assertEqual(epa_res.status, "unavailable")
-        self.assertIsNone(epa_res.aqi)
+        assert epa_res.status == "unavailable"
+        assert epa_res.aqi is None
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Moderator and administrator abuse-report review and resolution workspace.
+ */
+
 import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

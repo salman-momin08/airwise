@@ -1,3 +1,5 @@
+"""Impact estimation service combining verified reference emission factors with exposure guards."""
+
 from __future__ import annotations
 
 import uuid
@@ -43,6 +45,7 @@ ACTIVE_OUTDOOR_MODES: frozenset[str] = frozenset(
     {"walk", "bicycle", "two_wheeler_petrol", "two_wheeler_ev"}
 )
 
+
 def serialize_impact_record(
     record: ImpactEstimate,
     *,
@@ -74,6 +77,7 @@ def serialize_impact_record(
         exposure_screening=screening,
     )
 
+
 def serialize_impact_result(
     result: ImpactResult,
     *,
@@ -96,6 +100,7 @@ def serialize_impact_result(
         calculated_at=result.calculated_at,
         exposure_screening=screening,
     )
+
 
 class ImpactEngineService:
     """Coordinates deterministic impact calculators, exposure screening, and action logs."""
@@ -421,9 +426,7 @@ class ImpactEngineService:
         actions = await self._repo.list_user_actions(user_id=user_id, limit=limit)
         items: list[LoggedUserActionSchema] = []
         for act in actions:
-            est_schema = (
-                serialize_impact_record(act.estimates[0]) if act.estimates else None
-            )
+            est_schema = serialize_impact_record(act.estimates[0]) if act.estimates else None
             items.append(
                 LoggedUserActionSchema(
                     id=act.id,

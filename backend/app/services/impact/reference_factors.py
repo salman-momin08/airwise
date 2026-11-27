@@ -1,6 +1,9 @@
+"""Verified EPA, DEFRA, IPCC, and India CEA reference emission factors and exposure modifiers."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 
 @dataclass(frozen=True)
 class ReferenceEmissionFactorSpec:
@@ -14,6 +17,7 @@ class ReferenceEmissionFactorSpec:
     is_active_outdoor_mode: bool
     source_reference: str
     effective_year: int
+
 
 REFERENCE_EMISSION_FACTORS: tuple[ReferenceEmissionFactorSpec, ...] = (
     ReferenceEmissionFactorSpec(

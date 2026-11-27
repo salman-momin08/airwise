@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Account registration form initializing user profile and preferred AQI standard.
+ */
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";

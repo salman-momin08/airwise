@@ -1,3 +1,7 @@
+/**
+ * TypeScript DTO contracts for daily routines, recommendations, and deterministic impact estimates.
+ */
+
 import type { AQIStandard, CommuteMode } from "@/types/api";
 
 export type ConfidenceLevel = "low" | "medium" | "high";

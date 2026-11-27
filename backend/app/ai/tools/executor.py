@@ -1,3 +1,5 @@
+"""Deterministic execution engine for the 12 allowlisted AirWise Copilot tools."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -32,6 +34,7 @@ _MISSING_CALCULATION_INPUTS = {
     "reason": "Explicit structured calculation inputs and source assumptions are required.",
 }
 
+
 @dataclass
 class ToolExecutor:
     session: AsyncSession
@@ -48,7 +51,7 @@ class ToolExecutor:
     async def execute(self, call: ToolCall) -> dict[str, object]:
         spec = next(tool for tool in ALLOWLISTED_AI_TOOLS if tool.name == call.name)
         if spec.auth_scope == ToolAuthScope.AUTHENTICATED_SELF and self.user_id is None:
-            raise AuthenticationError()
+            raise AuthenticationError
         if spec.requires_preference_consent and not self.request.use_preferences:
             raise AuthorizationError(
                 code="AI_PREFERENCE_CONSENT_REQUIRED",
@@ -66,7 +69,7 @@ class ToolExecutor:
 
     def _require_user_id(self) -> UUID:
         if self.user_id is None:
-            raise AuthenticationError()
+            raise AuthenticationError
         return self.user_id
 
     async def _tool_current_aqi(self, _call: ToolCall) -> dict[str, object]:
@@ -100,9 +103,9 @@ class ToolExecutor:
     async def _tool_weather(self, _call: ToolCall) -> dict[str, object]:
         if self.request.city is None:
             return {"status": "unavailable", "reason": "No city was selected."}
-        weather = await WeatherTelemetryService(
-            self.session, self.settings
-        ).get_current_weather(city=self.request.city)
+        weather = await WeatherTelemetryService(self.session, self.settings).get_current_weather(
+            city=self.request.city
+        )
         return weather.model_dump(mode="json")
 
     async def _tool_saved_locations(self, _call: ToolCall) -> dict[str, object]:
@@ -110,9 +113,7 @@ class ToolExecutor:
             user_id=self._require_user_id()
         )
         return {
-            "locations": [
-                {"city": row.city, "country_code": row.country_code} for row in locations
-            ]
+            "locations": [{"city": row.city, "country_code": row.country_code} for row in locations]
         }
 
     async def _tool_user_preferences(self, _call: ToolCall) -> dict[str, object]:
@@ -194,8 +195,7 @@ class ToolExecutor:
             "status": "available",
             "initiatives": [item.model_dump(mode="json") for item in initiatives],
             "privacy_notice": (
-                "Aggregate self-reported participation only; "
-                "never claims measured city AQI change."
+                "Aggregate self-reported participation only; never claims measured city AQI change."
             ),
         }
 

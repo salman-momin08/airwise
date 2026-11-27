@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Exposure-screened commute comparison calculator and verified emission-factors table.
+ */
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -47,13 +51,26 @@ function ReferenceFactorsSection({
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
+            <caption className="sr-only">
+              Verified reference transport emission factors and exposure profiles
+            </caption>
             <thead>
               <tr className="border-b border-border text-text-secondary">
-                <th className="py-2 pr-4">Mode</th>
-                <th className="py-2 pr-4">Factor</th>
-                <th className="py-2 pr-4">Default Occupancy</th>
-                <th className="py-2 pr-4">Exposure Profile</th>
-                <th className="py-2">Reference Source</th>
+                <th scope="col" className="py-2 pr-4">
+                  Mode
+                </th>
+                <th scope="col" className="py-2 pr-4">
+                  Factor
+                </th>
+                <th scope="col" className="py-2 pr-4">
+                  Default Occupancy
+                </th>
+                <th scope="col" className="py-2 pr-4">
+                  Exposure Profile
+                </th>
+                <th scope="col" className="py-2">
+                  Reference Source
+                </th>
               </tr>
             </thead>
             <tbody>

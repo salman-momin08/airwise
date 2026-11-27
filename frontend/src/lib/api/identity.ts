@@ -1,3 +1,7 @@
+/**
+ * Typed `/api/v1/auth/*`, `/api/v1/users/*`, and `/api/v1/locations/*` client methods.
+ */
+
 import { apiRequest } from "@/lib/api/client";
 import type {
   AccountExportBundle,

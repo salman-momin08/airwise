@@ -1,3 +1,5 @@
+"""Personalized exposure-first daily recommendation cards and user feedback endpoints."""
+
 from __future__ import annotations
 
 import uuid
@@ -32,6 +34,7 @@ Database = Annotated[AsyncSession, Depends(get_db_session)]
 AppSettings = Annotated[Settings, Depends(get_app_settings)]
 Meta = Annotated[ResponseMeta, Depends(get_response_meta)]
 
+
 @router.post(
     "/generate",
     response_model=ApiResponse[list[RecommendationCardSchema]],
@@ -49,6 +52,7 @@ async def generate_recommendations_endpoint(
     cards = await service.generate_recommendations(user_id=principal.user_id, payload=payload)
     return ApiResponse(data=cards, meta=meta)
 
+
 @router.get("/today", response_model=ApiResponse[list[RecommendationCardSchema]])
 async def get_today_recommendations(
     principal: Principal,
@@ -59,6 +63,7 @@ async def get_today_recommendations(
     service = HybridRecommendationService(session=db, settings=settings)
     cards = await service.get_today_recommendations(user_id=principal.user_id)
     return ApiResponse(data=cards, meta=meta)
+
 
 @router.post(
     "/{recommendation_id}/feedback",

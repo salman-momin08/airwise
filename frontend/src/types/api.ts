@@ -1,3 +1,7 @@
+/**
+ * TypeScript DTO contracts for `/api/v1/` envelopes, auth principals, telemetry, and locations.
+ */
+
 export type AQIStandard = "india_naqi" | "us_epa";
 
 export type PollutantCode = "pm25" | "pm10" | "no2" | "so2" | "co" | "o3";

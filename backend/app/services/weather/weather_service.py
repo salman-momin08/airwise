@@ -1,3 +1,5 @@
+"""Weather telemetry service with stale-aware caching and thermal inversion flags."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +14,7 @@ from app.repositories.telemetry_repository import TelemetryRepository
 from app.schemas.weather import CurrentWeatherSchema
 from app.services.air_quality.cache import StaleAwareTelemetryCache, telemetry_cache
 
+
 def build_dispersion_note(
     *, inversion_risk: bool, wind_speed_mps: float, humidity_pct: float
 ) -> str:
@@ -25,6 +28,7 @@ def build_dispersion_note(
     if humidity_pct >= 75.0:
         return "High relative humidity can accelerate hygroscopic aerosol haze growth."
     return "Typical urban boundary-layer dispersion conditions."
+
 
 class WeatherTelemetryService:
     def __init__(

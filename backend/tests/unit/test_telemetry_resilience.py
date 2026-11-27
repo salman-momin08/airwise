@@ -35,6 +35,7 @@ from app.services.air_quality.aqi_calculator import (
 from app.services.air_quality.cache import StaleAwareTelemetryCache
 from app.services.air_quality.telemetry_service import AirQualityTelemetryService
 
+
 class _FailingPrimaryAdapter:
     provider_slug = "openaq"
 
@@ -45,17 +46,16 @@ class _FailingPrimaryAdapter:
         )
 
     async def fetch_city_stations(self, city: str) -> list[NormalizedStationTelemetry]:
-        raise ExternalProviderUnavailableError()
+        raise ExternalProviderUnavailableError
 
-    async def fetch_city_forecast(
-        self, city: str, hours: int = 24
-    ) -> NormalizedForecastPayload:
-        raise ExternalProviderUnavailableError()
+    async def fetch_city_forecast(self, city: str, hours: int = 24) -> NormalizedForecastPayload:
+        raise ExternalProviderUnavailableError
 
     async def fetch_city_history(
         self, city: str, period: Literal["24h", "7d", "30d"]
     ) -> NormalizedHistoryPayload:
-        raise ExternalProviderUnavailableError()
+        raise ExternalProviderUnavailableError
+
 
 class _ToggleableFallbackAdapter:
     provider_slug = "openweather"
@@ -87,15 +87,14 @@ class _ToggleableFallbackAdapter:
     async def fetch_city_stations(self, city: str) -> list[NormalizedStationTelemetry]:
         return []
 
-    async def fetch_city_forecast(
-        self, city: str, hours: int = 24
-    ) -> NormalizedForecastPayload:
-        raise ExternalProviderUnavailableError()
+    async def fetch_city_forecast(self, city: str, hours: int = 24) -> NormalizedForecastPayload:
+        raise ExternalProviderUnavailableError
 
     async def fetch_city_history(
         self, city: str, period: Literal["24h", "7d", "30d"]
     ) -> NormalizedHistoryPayload:
-        raise ExternalProviderUnavailableError()
+        raise ExternalProviderUnavailableError
+
 
 def test_us_epa_gaseous_breakpoints_and_explicit_unit_conversion() -> None:
     # Convert 76 ug/m3 NO2 -> ppb at 25°C, 1 atm (~40.4 ppb -> Good in US EPA)
@@ -108,9 +107,7 @@ def test_us_epa_gaseous_breakpoints_and_explicit_unit_conversion() -> None:
 
     # PM2.5 in ppb must never convert
     assert (
-        convert_gas_unit_for_standard(
-            PollutantCode.PM25, 45.0, "ppb", AQIStandard.INDIA_NAQI
-        )
+        convert_gas_unit_for_standard(PollutantCode.PM25, 45.0, "ppb", AQIStandard.INDIA_NAQI)
         is None
     )
 
@@ -122,12 +119,14 @@ def test_us_epa_gaseous_breakpoints_and_explicit_unit_conversion() -> None:
     assert epa_o3.status == "available"
     assert epa_o3.category == "Unhealthy for Sensitive Groups"
 
+
 def test_ssrf_host_allowlist_blocks_untrusted_targets() -> None:
     assert_allowed_https_url("https://api.openaq.org/v3/locations")
     with pytest.raises(ExternalProviderUnavailableError):
         assert_allowed_https_url("http://169.254.169.254/latest/meta-data/")
     with pytest.raises(ExternalProviderUnavailableError):
         assert_allowed_https_url("https://evil.example.org/v3/locations")
+
 
 async def test_primary_to_fallback_failover_and_stale_cache_warning(
     db_engine: AsyncEngine,
@@ -158,14 +157,13 @@ async def test_primary_to_fallback_failover_and_stale_cache_warning(
         assert reading.provider == "openweather"
         assert reading.source_type == "model"
         assert reading.is_stale is False
-        assert reading.aqi is not None and reading.aqi > 300
+        assert reading.aqi is not None
+        assert reading.aqi > 300
 
         # Second failure trips primary circuit breaker to "open"
         cache_key = "aqi:current:india_naqi:delhi"
         cache.expire_fresh_for_testing(cache_key)
-        await service.get_current_air_quality(
-            city="Delhi", standard=AQIStandard.INDIA_NAQI
-        )
+        await service.get_current_air_quality(city="Delhi", standard=AQIStandard.INDIA_NAQI)
         assert primary_breaker.state == "open"
 
         # 2. Expire fresh TTL and take fallback offline -> serves stale backup with is_stale=True
@@ -179,9 +177,8 @@ async def test_primary_to_fallback_failover_and_stale_cache_warning(
 
         # 3. Uncached city when all providers are down -> raises 503 (never fabricates numbers)
         with pytest.raises(ExternalProviderUnavailableError):
-            await service.get_current_air_quality(
-                city="Mumbai", standard=AQIStandard.INDIA_NAQI
-            )
+            await service.get_current_air_quality(city="Mumbai", standard=AQIStandard.INDIA_NAQI)
+
 
 async def test_openaq_v3_resolves_location_latest_by_sensors_id() -> None:
     now_iso = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
@@ -229,6 +226,7 @@ async def test_openaq_v3_resolves_location_latest_by_sensors_id() -> None:
     assert payload.measurements[PollutantCode.PM25] == (168.4, "ug/m3")
     assert payload.measurements[PollutantCode.PM10] == (284.0, "ug/m3")
     assert payload.measurements[PollutantCode.NO2] == (72.5, "ug/m3")
+
 
 async def test_openaq_does_not_leak_key_to_openweather_and_uses_open_meteo_fallback() -> None:
     settings = Settings(
@@ -278,6 +276,7 @@ async def test_openaq_does_not_leak_key_to_openweather_and_uses_open_meteo_fallb
             transport=httpx.MockTransport(unauthorized),
         )
     assert calls == 1
+
 
 async def test_list_stations_in_bbox_batches_queries_without_n_plus_one(
     db_engine: AsyncEngine,

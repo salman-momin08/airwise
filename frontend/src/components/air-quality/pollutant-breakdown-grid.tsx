@@ -1,3 +1,7 @@
+/**
+ * Per-pollutant concentration and sub-index breakdown grid surfacing unmeasured gases honestly.
+ */
+
 import type { AQIStandard, PollutantCode, PollutantReading } from "@/types/api";
 
 const POLLUTANT_META: Record<PollutantCode, { label: string; description: string }> = {

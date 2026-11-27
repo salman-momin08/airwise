@@ -1,3 +1,5 @@
+"""ORM entities for daily routines, recommendations, emission factors, and impact estimates."""
+
 from __future__ import annotations
 
 import uuid
@@ -23,6 +25,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.models.identity import JSON_VARIANT, StringListType, utc_now
 
+
 class EmissionFactor(Base):
     __tablename__ = "emission_factors"
 
@@ -37,6 +40,7 @@ class EmissionFactor(Base):
     source_reference: Mapped[str] = mapped_column(String(300), nullable=False)
     effective_year: Mapped[int] = mapped_column(Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
 
 class UserAction(Base):
     __tablename__ = "user_actions"
@@ -61,6 +65,7 @@ class UserAction(Base):
     estimates: Mapped[list[ImpactEstimate]] = relationship(
         "ImpactEstimate", back_populates="user_action"
     )
+
 
 class ImpactEstimate(Base):
     __tablename__ = "impact_estimates"
@@ -92,9 +97,8 @@ class ImpactEstimate(Base):
         DateTime(timezone=True), nullable=False, default=utc_now
     )
 
-    user_action: Mapped[UserAction | None] = relationship(
-        "UserAction", back_populates="estimates"
-    )
+    user_action: Mapped[UserAction | None] = relationship("UserAction", back_populates="estimates")
+
 
 class DailyRoutine(Base):
     __tablename__ = "daily_routines"
@@ -130,6 +134,7 @@ class DailyRoutine(Base):
         order_by="RoutineActivity.slot_order",
     )
 
+
 class RoutineActivity(Base):
     __tablename__ = "routine_activities"
     __table_args__ = (Index("ix_routine_activities_routine_id", "routine_id"),)
@@ -154,6 +159,7 @@ class RoutineActivity(Base):
     confidence: Mapped[str] = mapped_column(String(16), nullable=False, default="medium")
 
     routine: Mapped[DailyRoutine] = relationship("DailyRoutine", back_populates="activities")
+
 
 class Recommendation(Base):
     __tablename__ = "recommendations"
@@ -188,11 +194,10 @@ class Recommendation(Base):
         "RecommendationFeedback", back_populates="recommendation"
     )
 
+
 class RecommendationFeedback(Base):
     __tablename__ = "recommendation_feedback"
-    __table_args__ = (
-        Index("ix_recommendation_feedback_rec_user", "recommendation_id", "user_id"),
-    )
+    __table_args__ = (Index("ix_recommendation_feedback_rec_user", "recommendation_id", "user_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     recommendation_id: Mapped[uuid.UUID] = mapped_column(

@@ -1,3 +1,5 @@
+"""Spatial and time-series repository for air quality stations, measurements, and sources."""
+
 from __future__ import annotations
 
 import math
@@ -22,18 +24,15 @@ from app.services.air_quality.aqi_calculator import PollutantCode
 
 EARTH_RADIUS_KM = 6371.0
 
-def haversine_distance_km(
-    lat1: float, lon1: float, lat2: float, lon2: float
-) -> float:
+
+def haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Great-circle distance in km between two WGS84 coordinates."""
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     d_phi = math.radians(lat2 - lat1)
     d_lambda = math.radians(lon2 - lon1)
-    a = (
-        math.sin(d_phi / 2.0) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2.0) ** 2
-    )
+    a = math.sin(d_phi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2.0) ** 2
     return round(2.0 * EARTH_RADIUS_KM * math.atan2(math.sqrt(a), math.sqrt(1.0 - a)), 2)
+
 
 class TelemetryRepository:
     """Async SQLAlchemy 2.x repository for environmental sources, stations, and time series."""
@@ -141,9 +140,7 @@ class TelemetryRepository:
                     source_timezone="Asia/Kolkata",
                     ingested_at=now,
                     quality_flag=(
-                        "development_fixture"
-                        if station_data.is_development_fixture
-                        else "verified"
+                        "development_fixture" if station_data.is_development_fixture else "verified"
                     ),
                 )
             )
@@ -242,9 +239,7 @@ class TelemetryRepository:
             ]
         ] = []
         for station, provider_slug in rows:
-            is_fixture = (
-                provider_slug == "development_fixture" or station.id in fixture_stations
-            )
+            is_fixture = provider_slug == "development_fixture" or station.id in fixture_stations
             results.append(
                 (
                     station,

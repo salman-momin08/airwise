@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import unittest
 
+import pytest
+
 from app.services.impact.calculators import (
     calculate_household_energy_emissions,
     calculate_indoor_filtration_ach,
     calculate_transport_emissions,
     estimate_relative_exposure_change,
 )
+
 
 class TestDeterministicImpactCalculators(unittest.TestCase):
     def test_transport_emissions_accounts_for_vehicle_occupancy(self) -> None:
@@ -20,14 +23,14 @@ class TestDeterministicImpactCalculators(unittest.TestCase):
             alternative_occupancy=3.0,
             factor_source_reference="Test Reference Factor",
         )
-        self.assertTrue(res.is_estimate)
-        self.assertEqual(res.baseline_value, 3.6)
-        self.assertEqual(res.alternative_value, 1.2)
-        self.assertEqual(res.estimated_difference, 2.4)
-        self.assertEqual(res.unit, "kg_co2e")
+        assert res.is_estimate
+        assert res.baseline_value == 3.6
+        assert res.alternative_value == 1.2
+        assert res.estimated_difference == 2.4
+        assert res.unit == "kg_co2e"
 
     def test_zero_occupancy_raises_value_error(self) -> None:
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError, match="occupancy"):
             calculate_transport_emissions(
                 distance_km=10.0,
                 baseline_vkm_factor_kg_co2e=0.15,
@@ -46,17 +49,17 @@ class TestDeterministicImpactCalculators(unittest.TestCase):
             grid_source_reference="CEA India Baseline Grid Factor",
         )
         # Baseline = 10 kWh * 0.71 = 7.1 kg; Alt = 6 kWh * 0.71 = 4.26 kg; Diff = 2.84 kg
-        self.assertEqual(energy.baseline_value, 7.1)
-        self.assertEqual(energy.alternative_value, 4.26)
-        self.assertEqual(energy.estimated_difference, 2.84)
+        assert energy.baseline_value == 7.1
+        assert energy.alternative_value == 4.26
+        assert energy.estimated_difference == 2.84
 
         ach = calculate_indoor_filtration_ach(
             room_area_m2=20.0,
             ceiling_height_m=3.0,
             cadr_m3_per_hour=300.0,
         )
-        self.assertEqual(ach.alternative_value, 5.0)
-        self.assertEqual(ach.unit, "clean_air_changes_per_hour")
+        assert ach.alternative_value == 5.0
+        assert ach.unit == "clean_air_changes_per_hour"
 
     def test_relative_exposure_change(self) -> None:
         exp = estimate_relative_exposure_change(
@@ -66,9 +69,10 @@ class TestDeterministicImpactCalculators(unittest.TestCase):
             alternative_env_modifier=0.35,
             assumption_note="Outdoor walk vs filtered indoor exercise",
         )
-        self.assertEqual(exp.baseline_value, 180.0)
-        self.assertEqual(exp.alternative_value, 63.0)
-        self.assertEqual(exp.estimated_difference, 117.0)
+        assert exp.baseline_value == 180.0
+        assert exp.alternative_value == 63.0
+        assert exp.estimated_difference == 117.0
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,7 +1,8 @@
+"""Hybrid deterministic + safety-gated AI phrasing recommendation service."""
+
 from __future__ import annotations
 
 import json
-import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal, cast
@@ -12,8 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.gateway.budget import TokenBudget
 from app.ai.gateway.gemini import GeminiGateway, LLMGateway, OutputValidationError
-from app.ai.guardrails.grounding import is_injection
-from app.ai.guardrails.safety_rules import contains_prohibited_scientific_claim
 from app.core.config import Settings
 from app.core.exceptions import AuthorizationError, ExternalProviderUnavailableError
 from app.models.assistant import KnowledgeDocument
@@ -42,6 +41,12 @@ from app.schemas.weather import CurrentWeatherSchema
 from app.services.air_quality.aqi_calculator import AQIStandard
 from app.services.air_quality.telemetry_service import AirQualityTelemetryService
 from app.services.impact.impact_service import ImpactEngineService, serialize_impact_record
+from app.services.recommendations.card_templates import (
+    PRIORITY_ORDER,
+    build_deterministic_card_specs,
+    build_screened_transport_alternatives,
+    is_safe_ai_reason,
+)
 from app.services.recommendations.safety_engine import (
     EnvironmentalRuleContext,
     evaluate_environmental_rules,
@@ -50,32 +55,12 @@ from app.services.weather.weather_service import WeatherTelemetryService
 
 logger = structlog.get_logger(__name__)
 
-PRIORITY_ORDER: dict[str, int] = {
-    "critical": 0,
-    "high": 1,
-    "medium": 2,
-    "low": 3,
-}
-
-_NUMBER_CLAIM = re.compile(
-    r"\d|https?://|<[^>]*>|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|"
-    r"twenty|thirty|forty|fifty|hundred|thousand|percent|percentage)\b",
-    re.IGNORECASE,
-)
-
-def _is_safe_ai_reason(reason: str) -> bool:
-    cleaned = re.sub(r"PM2\.5|PM10|CO2e?|N95|FFP2|HEPA", "", reason, flags=re.IGNORECASE)
-    if _NUMBER_CLAIM.search(cleaned):
-        return False
-    if is_injection(reason) or contains_prohibited_scientific_claim(reason):
-        return False
-    lowered = reason.lower()
-    return not ("indoor air is safe" in lowered or ("drop" in lowered and "street" in lowered))
 
 def _ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
 
 class HybridRecommendationService:
     """Generates deterministic + optional Gemini-phrased cards across all 5 categories."""
@@ -168,13 +153,9 @@ class HybridRecommendationService:
     async def _serialize_cards(
         self, records: list[Recommendation]
     ) -> list[RecommendationCardSchema]:
-        est_ids = {
-            rec.impact_estimate_id
-            for rec in records
-            if rec.impact_estimate_id is not None
-        }
-        estimates: dict[uuid.UUID, ImpactEstimate] = (
-            await self._repo.get_impact_estimates_by_ids(est_ids)
+        est_ids = {rec.impact_estimate_id for rec in records if rec.impact_estimate_id is not None}
+        estimates: dict[uuid.UUID, ImpactEstimate] = await self._repo.get_impact_estimates_by_ids(
+            est_ids
         )
         all_doc_uuids: set[uuid.UUID] = set()
         for rec in records:
@@ -317,129 +298,12 @@ class HybridRecommendationService:
         )
 
         doc_ids, _ = await self._resolve_verified_documents(standard=payload.standard)
-
-        top_priority: RecommendationPriorityLiteral = (
-            "critical"
-            if rules.severity_tier == "severe"
-            else ("high" if rules.severity_tier in {"poor", "unavailable"} else "medium")
+        draft_specs = build_deterministic_card_specs(
+            rules=rules,
+            transport_estimate_id=transport_est.id,
+            filtration_estimate_id=filtration_est.id,
+            energy_estimate_id=energy_est.id,
         )
-
-        draft_specs: dict[RecommendationCategoryLiteral, dict[str, object]] = {
-            "routine": {
-                "priority": top_priority,
-                "title": (
-                    "Shift Strenuous Activity Indoors & Protect Vulnerable Household Members"
-                    if rules.block_outdoor_exertion
-                    else "Schedule Outdoor Activity Around Validated Dispersion Windows"
-                ),
-                "reason": (
-                    "Outdoor particulate exposure risk is elevated; moving heavy breathing "
-                    "activities indoors lowers cumulative PM2.5 inhalation."
-                    if rules.block_outdoor_exertion
-                    else "Verified ambient conditions allow moderate outdoor routines away from "
-                    "congested arterial corridors."
-                ),
-                "action_steps": [
-                    (
-                        "Replace outdoor running or playground exertion with indoor movement."
-                        if rules.block_outdoor_exertion
-                        else "Prefer parks away from roadside tailpipe corridors."
-                    ),
-                    rules.cleaner_window_note
-                    or "Check hourly AQI freshness before extending outdoor duration.",
-                    (
-                        "Wear a well-fitted N95/FFP2 respirator if prolonged "
-                        "outdoor travel is unavoidable."
-                    ),
-                ],
-                "safer_alternative": (
-                    "Generate and review a Morning–Night draft in the Daily Routine Planner."
-                ),
-                "impact_estimate_id": None,
-            },
-            "transport": {
-                "priority": "critical" if rules.block_active_outdoor_commute else "medium",
-                "title": (
-                    "Choose Enclosed Metro/Public Transit Over Walking or Cycling in Smog"
-                    if rules.block_active_outdoor_commute
-                    else "Substitute Urban Rail or Shared Transit for Solo Car Trips"
-                ),
-                "reason": (
-                    "Personal exposure safety overrides active-mobility CO2e savings during "
-                    "poor or severe pollution; enclosed rail transit cuts solo-car CO2e without "
-                    "unfiltered roadside exertion."
-                    if rules.block_active_outdoor_commute
-                    else "Shifting passenger kilometers from solo petrol driving to urban rail or "
-                    "bus transit lowers per-trip CO2e emissions."
-                ),
-                "action_steps": [
-                    (
-                        "Avoid roadside cycling, long walks, and open two-wheelers "
-                        "until AQI improves."
-                        if rules.block_active_outdoor_commute
-                        else "Compare door-to-door rail, bus, carpool, and active options."
-                    ),
-                    "Use enclosed metro/rail or carpool when commuting cannot be deferred.",
-                    "Keep cabin air on recirculation when passing congested traffic corridors.",
-                ],
-                "safer_alternative": "Work from home if your schedule allows during smog spikes.",
-                "impact_estimate_id": transport_est.id,
-            },
-            "indoor_air": {
-                "priority": "high" if rules.severity_tier in {"severe", "poor"} else "medium",
-                "title": "Eliminate Indoor Smoke Sources & Size HEPA Filtration to Room Volume",
-                "reason": rules.indoor_filtration_guidance,
-                "action_steps": [
-                    rules.ventilation_guidance,
-                    "Use damp mopping and microfiber wiping instead of dry sweeping.",
-                    "Size portable HEPA CADR to bedroom/living-room volume; avoid ozone cleaners.",
-                ],
-                "safer_alternative": (
-                    "Prioritize sealing window leaks and stopping indoor "
-                    "incense/combustion at zero cost."
-                ),
-                "impact_estimate_id": filtration_est.id,
-            },
-            "household_sustainability": {
-                "priority": "low" if rules.severity_tier == "severe" else "medium",
-                "title": "Trim Peak Appliance Wattage & Use Covered Clean Cooking",
-                "reason": (
-                    "Moderate HVAC setpoints and efficient induction/covered cooking reduce "
-                    "household electricity demand and indoor combustion fumes simultaneously."
-                ),
-                "action_steps": [
-                    "Run high-wattage water heaters or laundry outside evening grid-peak hours.",
-                    "Use lids and exhaust ventilation while cooking to cut energy and indoor haze.",
-                    "Maintain clean AC and purifier pre-filters so fans draw less power.",
-                ],
-                "safer_alternative": (
-                    "Never disable essential HEPA filtration solely to save "
-                    "electricity during smog."
-                ),
-                "impact_estimate_id": energy_est.id,
-            },
-            "community": {
-                "priority": "low",
-                "title": "Join Voluntary Neighborhood No-Idling & Clean-Commute Actions",
-                "reason": (
-                    "Coordinated school-gate no-idling and shared transit habits reduce local "
-                    "tailpipe emissions near pedestrians without claiming a single household can "
-                    "measurably drop city-wide ambient AQI."
-                ),
-                "action_steps": [
-                    (
-                        "Switch off vehicle engines when waiting more than 30 seconds "
-                        "at school or market drop-offs."
-                    ),
-                    "Coordinate a voluntary 3-person neighborhood carpool or metro buddy group.",
-                    "Share verified AQI standard & staleness context with Older Adult neighbors.",
-                ],
-                "safer_alternative": (
-                    "Participate remotely during severe smog alerts rather than gathering outdoors."
-                ),
-                "impact_estimate_id": None,
-            },
-        }
 
         enriched_categories: set[str] = set()
         if (
@@ -476,7 +340,7 @@ class HybridRecommendationService:
                     schema=GeneratedRecommendationsBatch,
                 )
                 for item in ai_batch.cards:
-                    if item.category in draft_specs and _is_safe_ai_reason(item.reason):
+                    if item.category in draft_specs and is_safe_ai_reason(item.reason):
                         draft_specs[item.category]["reason"] = item.reason
                         enriched_categories.add(item.category)
             except (ExternalProviderUnavailableError, OutputValidationError, ValueError) as exc:
@@ -584,42 +448,10 @@ class HybridRecommendationService:
         )
 
         cycle_safe = not rules.block_active_outdoor_commute and rules.is_available
-        return [
-            ScreenedAlternativeSchema(
-                category="transport",
-                option_code="metro_rail",
-                title="Urban Metro / Rail Transit (Enclosed Cabin)",
-                exposure_safe_now=True,
-                safety_rationale=(
-                    "Enclosed rail protects against direct roadside exhaust and heavy breathing "
-                    "exposure during poor/severe pollution."
-                ),
-                estimated_co2e_difference_kg=metro_res.estimated_difference,
-                assumptions_note=f"{distance_km:.1f} km vs solo petrol car (is_estimate=true)",
-            ),
-            ScreenedAlternativeSchema(
-                category="transport",
-                option_code="carpool_3",
-                title="3-Person Shared Carpool (Recirculate Cabin Air)",
-                exposure_safe_now=True,
-                safety_rationale=(
-                    "Divides per-passenger vehicle emissions by 3 inside an enclosed cabin."
-                ),
-                estimated_co2e_difference_kg=carpool_res.estimated_difference,
-                assumptions_note=f"{distance_km:.1f} km vs solo petrol car (is_estimate=true)",
-            ),
-            ScreenedAlternativeSchema(
-                category="transport",
-                option_code="bicycle",
-                title="Active Cycling Commute",
-                exposure_safe_now=cycle_safe,
-                safety_rationale=(
-                    "Blocked right now: exposure safety overrides zero-tailpipe CO2e during "
-                    "elevated or unverified outdoor pollution."
-                    if not cycle_safe
-                    else "Outdoor AQI is verified within acceptable bounds for active cycling."
-                ),
-                estimated_co2e_difference_kg=cycle_res.estimated_difference,
-                assumptions_note=f"{distance_km:.1f} km vs solo petrol car (is_estimate=true)",
-            ),
-        ]
+        return build_screened_transport_alternatives(
+            distance_km=distance_km,
+            cycle_safe=cycle_safe,
+            metro_diff_kg=metro_res.estimated_difference,
+            carpool_diff_kg=carpool_res.estimated_difference,
+            cycle_diff_kg=cycle_res.estimated_difference,
+        )

@@ -1,3 +1,5 @@
+"""Pydantic v2 DTOs for neighborhood communities, initiatives, participation, and moderation."""
+
 from __future__ import annotations
 
 import re
@@ -31,6 +33,7 @@ _DISALLOWED_COMMUNITY_PII = re.compile(
     re.IGNORECASE,
 )
 
+
 def _reject_pii_or_exact_address(value: str) -> str:
     if _DISALLOWED_COMMUNITY_PII.search(value):
         raise ValueError(
@@ -38,6 +41,7 @@ def _reject_pii_or_exact_address(value: str) -> str:
             "household unit numbers, street addresses, exact GPS coordinates, emails, or phones."
         )
     return value
+
 
 class CreateCommunityRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -61,10 +65,12 @@ class CreateCommunityRequest(BaseModel):
     def check_no_pii(cls, value: str) -> str:
         return _reject_pii_or_exact_address(value)
 
+
 class JoinCommunityRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     public_display_consent: bool = False
+
 
 class CommunitySummarySchema(BaseModel):
     id: UUID
@@ -79,6 +85,7 @@ class CommunitySummarySchema(BaseModel):
     current_user_public_display_consent: bool = False
     created_at: datetime
 
+
 class CommunityDetailSchema(CommunitySummarySchema):
     moderation_policy: str
     total_self_reported_actions: int
@@ -89,6 +96,7 @@ class CommunityDetailSchema(CommunitySummarySchema):
         "or displayed, member names appear only with explicit opt-in consent, and voluntary "
         "action totals are deterministic CO2e estimates—not measured ambient AQI reductions."
     )
+
 
 class CreateInitiativeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -110,6 +118,7 @@ class CreateInitiativeRequest(BaseModel):
             raise ValueError("ends_at must be after starts_at.")
         return self
 
+
 class CommunityInitiativeSchema(BaseModel):
     id: UUID
     community_id: UUID
@@ -127,6 +136,7 @@ class CommunityInitiativeSchema(BaseModel):
     is_self_reported_aggregate: Literal[True] = True
     created_at: datetime
 
+
 class LogParticipationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -139,6 +149,7 @@ class LogParticipationRequest(BaseModel):
     def check_note_no_pii(cls, value: str | None) -> str | None:
         return _reject_pii_or_exact_address(value) if value is not None else None
 
+
 class ParticipationReceiptSchema(BaseModel):
     id: UUID
     initiative_id: UUID
@@ -148,6 +159,7 @@ class ParticipationReceiptSchema(BaseModel):
     is_estimate: Literal[True] = True
     reported_at: datetime
 
+
 class CreateAbuseReportRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -155,17 +167,20 @@ class CreateAbuseReportRequest(BaseModel):
     reason_category: ReportReasonLiteral
     details: str = Field(min_length=8, max_length=500)
 
+
 class ResolveAbuseReportRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     action: Literal["dismiss", "hide_initiative"]
     resolution_note: str = Field(min_length=4, max_length=400)
 
+
 class ModerateInitiativeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     moderation_status: Literal["active", "hidden", "archived"]
     reason: str = Field(min_length=4, max_length=300)
+
 
 class AbuseReportSchema(BaseModel):
     id: UUID

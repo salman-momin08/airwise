@@ -1,3 +1,5 @@
+"""Air quality telemetry service coordinating cache, primary/fallback providers, and DB storage."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -47,6 +49,7 @@ PRIORITY_INGESTION_CITIES: tuple[str, ...] = (
     "Kolkata",
 )
 
+
 def precaution_for_aqi(standard: AQIStandard, aqi: int | None) -> str:
     if aqi is None:
         return (
@@ -73,6 +76,7 @@ def precaution_for_aqi(standard: AQIStandard, aqi: int | None) -> str:
         )
     return "Air quality is suitable for normal outdoor activities."
 
+
 def calculate_standard_isolated_aqi(
     standard: AQIStandard,
     raw_measurements: dict[PollutantCode, tuple[float, str]],
@@ -84,6 +88,7 @@ def calculate_standard_isolated_aqi(
         if norm is not None:
             converted[code] = norm
     return calculate_aqi(standard=standard, measurements=converted)
+
 
 class AirQualityTelemetryService:
     """Service orchestrating standard-isolated AQI, caching, staleness, and stations."""
@@ -117,9 +122,7 @@ class AirQualityTelemetryService:
         try:
             raw = await self._adapter.fetch_city_measurements(city)
         except ExternalProviderUnavailableError:
-            stale_backup = await self._cache.get_stale_backup(
-                cache_key, CurrentAirQualitySchema
-            )
+            stale_backup = await self._cache.get_stale_backup(cache_key, CurrentAirQualitySchema)
             if stale_backup is not None:
                 return stale_backup.model_copy(update={"is_stale": True})
             raise
@@ -179,9 +182,7 @@ class AirQualityTelemetryService:
         try:
             raw_history = await self._adapter.fetch_city_history(city, period=period)
         except ExternalProviderUnavailableError:
-            stale_backup = await self._cache.get_stale_backup(
-                cache_key, HistoricalAirQualitySchema
-            )
+            stale_backup = await self._cache.get_stale_backup(cache_key, HistoricalAirQualitySchema)
             if stale_backup is not None:
                 return stale_backup.model_copy(update={"is_stale": True})
             raise
@@ -230,9 +231,7 @@ class AirQualityTelemetryService:
         try:
             raw_forecast = await self._adapter.fetch_city_forecast(city, hours=hours)
         except ExternalProviderUnavailableError:
-            stale_backup = await self._cache.get_stale_backup(
-                cache_key, AirQualityForecastSchema
-            )
+            stale_backup = await self._cache.get_stale_backup(cache_key, AirQualityForecastSchema)
             if stale_backup is not None:
                 return stale_backup.model_copy(update={"is_stale": True})
             raise
@@ -363,9 +362,7 @@ class AirQualityTelemetryService:
             for st in raw_stations
         ]
         filtered = [
-            item
-            for item in mapped
-            if item.distance_km is None or item.distance_km <= radius_km
+            item for item in mapped if item.distance_km is None or item.distance_km <= radius_km
         ]
         filtered.sort(key=lambda s: s.distance_km if s.distance_km is not None else 0.0)
         return filtered
@@ -388,8 +385,7 @@ class AirQualityTelemetryService:
                 raise AirWiseError(
                     code="VALIDATION_ERROR",
                     message=(
-                        "bbox must contain 4 comma-separated numbers: "
-                        "minLon,minLat,maxLon,maxLat."
+                        "bbox must contain 4 comma-separated numbers: minLon,minLat,maxLon,maxLat."
                     ),
                     status_code=422,
                 )
@@ -421,8 +417,7 @@ class AirQualityTelemetryService:
                 stations_list.extend(
                     st
                     for st in city_stations
-                    if min_lat <= st.latitude <= max_lat
-                    and min_lon <= st.longitude <= max_lon
+                    if min_lat <= st.latitude <= max_lat and min_lon <= st.longitude <= max_lon
                 )
 
             if not stations_list:
@@ -454,9 +449,7 @@ class AirQualityTelemetryService:
                             dominant_pollutant=calc.dominant_pollutant,
                             measured_at=latest_ts,
                             is_stale=(
-                                is_timestamp_stale(latest_ts)
-                                if latest_ts is not None
-                                else True
+                                is_timestamp_stale(latest_ts) if latest_ts is not None else True
                             ),
                             is_development_fixture=is_fix,
                         )
@@ -469,9 +462,7 @@ class AirQualityTelemetryService:
         any_fixture = any(st.is_development_fixture for st in stations_list)
         features = [
             StationGeoJsonFeatureSchema(
-                geometry=GeoJsonPointGeometrySchema(
-                    coordinates=(st.longitude, st.latitude)
-                ),
+                geometry=GeoJsonPointGeometrySchema(coordinates=(st.longitude, st.latitude)),
                 properties=StationGeoJsonPropertiesSchema(
                     station_id=st.station_id,
                     name=st.name,
@@ -506,12 +497,8 @@ class AirQualityTelemetryService:
                 for st in stations:
                     await self._repo.upsert_station_with_measurements(st)
                     persisted_stations += 1
-                await self.get_current_air_quality(
-                    city=city, standard=AQIStandard.INDIA_NAQI
-                )
-                await self.get_current_air_quality(
-                    city=city, standard=AQIStandard.US_EPA
-                )
+                await self.get_current_air_quality(city=city, standard=AQIStandard.INDIA_NAQI)
+                await self.get_current_air_quality(city=city, standard=AQIStandard.US_EPA)
                 ingested_cities += 1
             except ExternalProviderUnavailableError:
                 continue

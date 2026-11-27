@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Accessible historical air quality trend chart preserving missing-hour gaps (`connectNulls={false}`).
+ */
+
 import {
   Area,
   AreaChart,

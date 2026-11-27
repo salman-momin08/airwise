@@ -1,3 +1,7 @@
+/**
+ * Typed `/api/v1/alerts/*`, `/api/v1/notifications/*`, and `/api/v1/communities/*` client methods.
+ */
+
 import { apiRequest } from "@/lib/api/client";
 import type { AQIStandard } from "@/types/api";
 import type {

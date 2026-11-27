@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Chronological user environmental action log and cumulative estimated impact summary.
+ */
+
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {

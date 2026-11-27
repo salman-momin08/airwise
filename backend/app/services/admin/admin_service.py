@@ -1,3 +1,5 @@
+"""Platform governance service for RBAC user management, data sources, and redacted audit logs."""
+
 from __future__ import annotations
 
 import uuid
@@ -37,10 +39,12 @@ from app.schemas.admin import (
     UpsertSystemSettingRequest,
 )
 
+
 def _ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
 
 DEFAULT_SOURCE_CATALOG: tuple[dict[str, object], ...] = (
     {
@@ -69,6 +73,7 @@ DEFAULT_SOURCE_CATALOG: tuple[dict[str, object], ...] = (
     },
 )
 
+
 class AdminGovernanceService:
     """Backend-enforced administrative governance with append-only redacted audit logs."""
 
@@ -95,18 +100,13 @@ class AdminGovernanceService:
             or 0
         )
         docs_count = int(
-            await self._session.scalar(select(func.count()).select_from(KnowledgeDocument))
-            or 0
+            await self._session.scalar(select(func.count()).select_from(KnowledgeDocument)) or 0
         )
         chunks_count = int(
-            await self._session.scalar(select(func.count()).select_from(KnowledgeChunk))
-            or 0
+            await self._session.scalar(select(func.count()).select_from(KnowledgeChunk)) or 0
         )
         total_ai = int(
-            await self._session.scalar(
-                select(func.count()).select_from(AIGenerationMetadata)
-            )
-            or 0
+            await self._session.scalar(select(func.count()).select_from(AIGenerationMetadata)) or 0
         )
         fallback_ai = int(
             await self._session.scalar(
@@ -152,9 +152,7 @@ class AdminGovernanceService:
         items: list[AdminUserItemSchema] = []
         for user in rows:
             display = (
-                user.profile.display_name
-                if user.profile is not None
-                else user.email.split("@")[0]
+                user.profile.display_name if user.profile is not None else user.email.split("@")[0]
             )
             items.append(
                 AdminUserItemSchema(
@@ -337,9 +335,7 @@ class AdminGovernanceService:
                 KnowledgeChunk.document_id
             )
         )
-        chunk_counts: dict[uuid.UUID, int] = {
-            doc_id: int(cnt) for doc_id, cnt in chunk_counts_rows
-        }
+        chunk_counts: dict[uuid.UUID, int] = {doc_id: int(cnt) for doc_id, cnt in chunk_counts_rows}
         horizon_cutoff = datetime.now(tz=UTC) - timedelta(days=730)
 
         doc_items = [
@@ -350,9 +346,7 @@ class AdminGovernanceService:
                 source_url=d.source_url,
                 jurisdiction=d.jurisdiction,
                 trust_classification=d.trust_classification,
-                publication_date=(
-                    _ensure_utc(d.publication_date) if d.publication_date else None
-                ),
+                publication_date=(_ensure_utc(d.publication_date) if d.publication_date else None),
                 last_reviewed_date=_ensure_utc(d.last_reviewed_date),
                 chunks_count=chunk_counts.get(d.id, 0),
                 is_review_overdue=_ensure_utc(d.last_reviewed_date) < horizon_cutoff,
@@ -446,9 +440,7 @@ class AdminGovernanceService:
         ]
 
     async def list_system_settings(self) -> list[SystemSettingItemSchema]:
-        rows = await self._session.scalars(
-            select(SystemSetting).order_by(SystemSetting.key.asc())
-        )
+        rows = await self._session.scalars(select(SystemSetting).order_by(SystemSetting.key.asc()))
         return [
             SystemSettingItemSchema(
                 key=item.key,
@@ -469,9 +461,7 @@ class AdminGovernanceService:
     ) -> SystemSettingItemSchema:
         now = datetime.now(tz=UTC)
         clean_value = redact_sensitive_mapping(dict(payload.value))
-        setting = await self._session.scalar(
-            select(SystemSetting).where(SystemSetting.key == key)
-        )
+        setting = await self._session.scalar(select(SystemSetting).where(SystemSetting.key == key))
         if setting is None:
             setting = SystemSetting(
                 key=key,

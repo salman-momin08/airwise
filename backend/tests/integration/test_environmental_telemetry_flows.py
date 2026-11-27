@@ -2,16 +2,13 @@ from __future__ import annotations
 
 from httpx import AsyncClient
 
+
 async def test_current_history_forecast_stations_geojson_and_weather_flows(
     api_client: AsyncClient,
 ) -> None:
     # 1. Standard isolation on identical Delhi telemetry
-    india_res = await api_client.get(
-        "/api/v1/air-quality/current?city=Delhi&standard=india_naqi"
-    )
-    epa_res = await api_client.get(
-        "/api/v1/air-quality/current?city=Delhi&standard=us_epa"
-    )
+    india_res = await api_client.get("/api/v1/air-quality/current?city=Delhi&standard=india_naqi")
+    epa_res = await api_client.get("/api/v1/air-quality/current?city=Delhi&standard=us_epa")
     assert india_res.status_code == 200
     assert epa_res.status_code == 200
 

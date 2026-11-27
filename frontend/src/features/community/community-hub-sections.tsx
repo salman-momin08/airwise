@@ -1,3 +1,7 @@
+/**
+ * Consent-gated neighborhood community summary, initiatives, and abuse-reporting sections.
+ */
+
 import Link from "next/link";
 import type { UseFormReturn } from "react-hook-form";
 import type {
@@ -248,21 +252,27 @@ export function CommunityDetailCard({
           className="space-y-3 rounded-lg border border-border bg-background p-4"
         >
           <h3 className="text-sm font-semibold">Report Moderation or Privacy Concern</h3>
-          <select
-            {...reportForm.register("reason_category")}
-            className="w-full rounded border border-text-secondary bg-surface p-2 text-xs"
-          >
-            <option value="pii_exposure">Personal / Exact Location Exposure</option>
-            <option value="misinformation">Scientific / AQI Misinformation</option>
-            <option value="unsafe_health_advice">Unsafe Health Advice</option>
-            <option value="harassment_or_spam">Harassment or Spam</option>
-          </select>
-          <textarea
-            rows={2}
-            {...reportForm.register("details")}
-            placeholder="Describe the concern for moderator review..."
-            className="w-full rounded border border-text-secondary bg-surface p-2 text-xs"
-          />
+          <label className="block text-xs font-medium">
+            Concern Category
+            <select
+              {...reportForm.register("reason_category")}
+              className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-xs"
+            >
+              <option value="pii_exposure">Personal / Exact Location Exposure</option>
+              <option value="misinformation">Scientific / AQI Misinformation</option>
+              <option value="unsafe_health_advice">Unsafe Health Advice</option>
+              <option value="harassment_or_spam">Harassment or Spam</option>
+            </select>
+          </label>
+          <label className="block text-xs font-medium">
+            Concern Details
+            <textarea
+              rows={2}
+              {...reportForm.register("details")}
+              placeholder="Describe the concern for moderator review..."
+              className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-xs"
+            />
+          </label>
           <button
             type="submit"
             disabled={reportPending}

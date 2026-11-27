@@ -1,3 +1,7 @@
+/**
+ * Transparent deterministic environmental impact card surfacing `is_estimate` assumptions and methodology.
+ */
+
 import { AQIBadge } from "@/components/air-quality/aqi-badge";
 import type { ImpactEstimate } from "@/types/planning";
 

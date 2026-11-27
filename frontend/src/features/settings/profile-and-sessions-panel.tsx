@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * User identity profile editor and active device session revocation panel.
+ */
+
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -84,6 +88,131 @@ function ActiveSessionsSection({
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+interface ProfileIdentitySectionProps {
+  email: string | undefined;
+  isEmailVerified: boolean | undefined;
+  savedNotice: string | null;
+  form: ReturnType<typeof useForm<ProfileSettingsFormValues>>;
+  isPending: boolean;
+  onSubmit: (values: ProfileSettingsFormValues) => void;
+}
+
+function ProfileIdentitySection({
+  email,
+  isEmailVerified,
+  savedNotice,
+  form,
+  isPending,
+  onSubmit,
+}: ProfileIdentitySectionProps) {
+  const displayNameError = form.formState.errors.display_name;
+  return (
+    <section className="rounded-card border border-border bg-surface p-6 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary">Account Identity</h2>
+          <p className="text-xs text-text-secondary">
+            Signed in as <span className="font-medium text-text-primary">{email}</span> ·{" "}
+            {isEmailVerified ? "Email verified" : "Email verification pending"}
+          </p>
+        </div>
+      </div>
+
+      {savedNotice ? (
+        <div
+          role="status"
+          className="mb-4 rounded-lg border border-brand-secondary/40 bg-brand-accent/40 p-3 text-sm text-text-primary"
+        >
+          {savedNotice}
+        </div>
+      ) : null}
+
+      <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label
+            htmlFor="profile-display-name"
+            className="block text-sm font-medium text-text-primary"
+          >
+            Display name
+          </label>
+          <input
+            id="profile-display-name"
+            type="text"
+            aria-invalid={Boolean(displayNameError)}
+            aria-describedby={displayNameError ? "profile-display-name-error" : undefined}
+            {...form.register("display_name")}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
+          />
+          {displayNameError ? (
+            <p
+              id="profile-display-name-error"
+              className="mt-1 text-xs text-red-700 dark:text-red-300"
+            >
+              {displayNameError.message}
+            </p>
+          ) : null}
+        </div>
+
+        <div>
+          <label
+            htmlFor="profile-standard"
+            className="block text-sm font-medium text-text-primary"
+          >
+            Preferred AQI standard
+          </label>
+          <select
+            id="profile-standard"
+            {...form.register("preferred_aqi_standard")}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
+          >
+            <option value="india_naqi">India NAQI (CPCB)</option>
+            <option value="us_epa">US EPA AQI</option>
+          </select>
+        </div>
+
+        <div>
+          <label
+            htmlFor="profile-timezone"
+            className="block text-sm font-medium text-text-primary"
+          >
+            Timezone
+          </label>
+          <input
+            id="profile-timezone"
+            type="text"
+            {...form.register("timezone")}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="profile-locale" className="block text-sm font-medium text-text-primary">
+            Language
+          </label>
+          <select
+            id="profile-locale"
+            {...form.register("locale")}
+            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
+          >
+            <option value="en">English</option>
+            <option value="hi">Hindi (हिन्दी)</option>
+          </select>
+        </div>
+
+        <div className="sm:col-span-2">
+          <button
+            type="submit"
+            disabled={isPending}
+            className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:text-background"
+          >
+            {isPending ? "Saving…" : "Save profile changes"}
+          </button>
+        </div>
+      </form>
     </section>
   );
 }
@@ -175,114 +304,20 @@ export function ProfileAndSessionsPanel() {
   }
 
   const user = meQuery.data?.data;
-  const displayNameError = form.formState.errors.display_name;
 
   return (
     <div className="space-y-8">
-      <section className="rounded-card border border-border bg-surface p-6 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary">Account Identity</h2>
-            <p className="text-xs text-text-secondary">
-              Signed in as <span className="font-medium text-text-primary">{user?.email}</span> ·{" "}
-              {user?.is_email_verified ? "Email verified" : "Email verification pending"}
-            </p>
-          </div>
-        </div>
-
-        {savedNotice ? (
-          <div
-            role="status"
-            className="mb-4 rounded-lg border border-brand-secondary/40 bg-brand-accent/40 p-3 text-sm text-text-primary"
-          >
-            {savedNotice}
-          </div>
-        ) : null}
-
-        <form
-          onSubmit={form.handleSubmit((values) => {
-            setSavedNotice(null);
-            updateMutation.mutate(values);
-          })}
-          noValidate
-          className="grid gap-4 sm:grid-cols-2"
-        >
-          <div>
-            <label
-              htmlFor="profile-display-name"
-              className="block text-sm font-medium text-text-primary"
-            >
-              Display name
-            </label>
-            <input
-              id="profile-display-name"
-              type="text"
-              aria-invalid={Boolean(displayNameError)}
-              {...form.register("display_name")}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
-            />
-            {displayNameError ? (
-              <p className="mt-1 text-xs text-red-600">{displayNameError.message}</p>
-            ) : null}
-          </div>
-
-          <div>
-            <label
-              htmlFor="profile-standard"
-              className="block text-sm font-medium text-text-primary"
-            >
-              Preferred AQI standard
-            </label>
-            <select
-              id="profile-standard"
-              {...form.register("preferred_aqi_standard")}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
-            >
-              <option value="india_naqi">India NAQI (CPCB)</option>
-              <option value="us_epa">US EPA AQI</option>
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="profile-timezone"
-              className="block text-sm font-medium text-text-primary"
-            >
-              Timezone
-            </label>
-            <input
-              id="profile-timezone"
-              type="text"
-              {...form.register("timezone")}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="profile-locale" className="block text-sm font-medium text-text-primary">
-              Language
-            </label>
-            <select
-              id="profile-locale"
-              {...form.register("locale")}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
-            >
-              <option value="en">English</option>
-              <option value="hi">Hindi (हिन्दी)</option>
-            </select>
-          </div>
-
-          <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={updateMutation.isPending}
-              className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:text-background"
-            >
-              {updateMutation.isPending ? "Saving…" : "Save profile changes"}
-            </button>
-          </div>
-        </form>
-      </section>
+      <ProfileIdentitySection
+        email={user?.email}
+        isEmailVerified={user?.is_email_verified}
+        savedNotice={savedNotice}
+        form={form}
+        isPending={updateMutation.isPending}
+        onSubmit={(values) => {
+          setSavedNotice(null);
+          updateMutation.mutate(values);
+        }}
+      />
 
       <ActiveSessionsSection
         sessions={sessionsQuery.data?.data ?? []}

@@ -29,7 +29,7 @@ class TokenBudget:
         self._key = f"ai:tokens:{datetime.now(UTC):%Y-%m-%d}:{user_id}"
 
     async def reserve(self, tokens: int) -> None:
-        if self._settings.app_env == "test":
+        if self._settings.app_env == "test" or not self._settings.redis_url:
             used = self._test_usage.get(self._key, 0)
             if used + tokens > self._settings.ai_daily_token_budget:
                 raise RateLimitExceededError(code="AI_DAILY_BUDGET_EXCEEDED")
@@ -44,8 +44,8 @@ class TokenBudget:
                 )
                 if not allowed:
                     raise RateLimitExceededError(code="AI_DAILY_BUDGET_EXCEEDED")
-        except RedisError:
-            logger.warning("ai_token_budget_unavailable")
+        except (RedisError, ValueError) as exc:
+            logger.warning("ai_token_budget_unavailable", error_type=type(exc).__name__)
             raise ExternalProviderUnavailableError(
                 code="AI_BUDGET_UNAVAILABLE",
                 message="AI usage limits cannot be checked right now. Please try again.",

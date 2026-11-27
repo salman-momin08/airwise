@@ -3,14 +3,15 @@ from __future__ import annotations
 from celery import Celery
 from celery.schedules import crontab
 
-from app.core.config import get_settings
+from app.core.config import get_settings, is_valid_redis_url
 
 settings = get_settings()
+_celery_redis_url = settings.redis_url if is_valid_redis_url(settings.redis_url) else None
 
 celery_app = Celery(
     "airwise_workers",
-    broker=settings.redis_url,
-    backend=settings.redis_url,
+    broker=_celery_redis_url or "memory://",
+    backend=_celery_redis_url or "cache+memory://",
     include=[
         "app.workers.ingestion_tasks",
         "app.workers.knowledge_tasks",

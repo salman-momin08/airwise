@@ -3,8 +3,46 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+VALID_REDIS_SCHEMES = ("redis://", "rediss://", "unix://")
+_DISABLED_REDIS_SENTINELS = frozenset({"", "none", "null", "false", "disabled"})
+
+
+def _strip_wrapping_quotes(value: str) -> str:
+    trimmed = value.strip()
+    if len(trimmed) >= 2 and trimmed[0] == trimmed[-1] and trimmed[0] in {'"', "'"}:
+        return trimmed[1:-1].strip()
+    return trimmed
+
+
+def normalize_redis_url(raw: str) -> str:
+    """Normalize common Vercel/Upstash paste variants (quotes, whitespace, redis-cli)."""
+    cleaned = _strip_wrapping_quotes(raw)
+    if cleaned.lower() in _DISABLED_REDIS_SENTINELS:
+        return ""
+    if cleaned.startswith("redis-cli"):
+        tokens = cleaned.split()
+        use_tls = "--tls" in tokens
+        extracted = ""
+        for idx, tok in enumerate(tokens):
+            stripped_tok = _strip_wrapping_quotes(tok)
+            if stripped_tok in {"-u", "--uri"} and idx + 1 < len(tokens):
+                extracted = _strip_wrapping_quotes(tokens[idx + 1])
+                break
+            if stripped_tok.startswith(VALID_REDIS_SCHEMES):
+                extracted = stripped_tok
+                break
+        if extracted:
+            if use_tls and extracted.startswith("redis://"):
+                return "rediss://" + extracted.removeprefix("redis://")
+            return extracted
+    return cleaned
+
+
+def is_valid_redis_url(url: str) -> bool:
+    return bool(url) and url.startswith(VALID_REDIS_SCHEMES)
 
 
 class Settings(BaseSettings):
@@ -21,6 +59,13 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://airwise:airwise_dev_only@localhost:5432/airwise"
     redis_url: str = "redis://localhost:6379/0"
+
+    @field_validator("redis_url", mode="before")
+    @classmethod
+    def _clean_redis_url(cls, value: object) -> object:
+        if isinstance(value, str):
+            return normalize_redis_url(value)
+        return value
 
     auth_secret_key: str = Field(
         default="dev-only-replace-with-cryptographic-random-secret-key",

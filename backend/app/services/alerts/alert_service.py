@@ -101,8 +101,8 @@ class AlertDeduplicator:
                 ) as redis:
                     acquired = await redis.set(dedup_key, "1", ex=max(ttl_seconds, 60), nx=True)
                     return bool(acquired)
-            except RedisError as exc:
-                logger.warning("alert_dedup_redis_fallback", reason=str(exc))
+            except (RedisError, ValueError) as exc:
+                logger.warning("alert_dedup_redis_fallback", error_type=type(exc).__name__)
 
         if dedup_key in self._local_keys:
             return False

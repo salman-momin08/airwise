@@ -4,6 +4,8 @@ import os
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+os.environ.setdefault("APP_ENV", "test")
+
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import (

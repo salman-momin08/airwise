@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID
 
 import structlog
-from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from app.core.config import Settings
 from app.core.exceptions import ExternalProviderUnavailableError, RateLimitExceededError
+from app.core.redis_client import create_async_redis_client
 
 logger = structlog.get_logger(__name__)
 _RESERVE = """
@@ -36,15 +38,23 @@ class TokenBudget:
             self._test_usage[self._key] = used + tokens
             return
         try:
-            async with Redis.from_url(
-                self._settings.redis_url, socket_connect_timeout=1.5, socket_timeout=1.5
+            async with create_async_redis_client(
+                self._settings.redis_url,
+                decode_responses=False,
             ) as redis:
-                allowed = await redis.eval(
-                    _RESERVE, 1, self._key, tokens, self._settings.ai_daily_token_budget
+                allowed = await cast(
+                    Awaitable[int],
+                    redis.eval(
+                        _RESERVE,
+                        1,
+                        self._key,
+                        str(tokens),
+                        str(self._settings.ai_daily_token_budget),
+                    ),
                 )
                 if not allowed:
                     raise RateLimitExceededError(code="AI_DAILY_BUDGET_EXCEEDED")
-        except (RedisError, ValueError) as exc:
+        except (RedisError, ValueError, RuntimeError) as exc:
             logger.warning("ai_token_budget_unavailable", error_type=type(exc).__name__)
             raise ExternalProviderUnavailableError(
                 code="AI_BUDGET_UNAVAILABLE",

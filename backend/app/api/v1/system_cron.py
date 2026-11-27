@@ -18,14 +18,12 @@ from app.services.auth.auth_service import AuthService
 
 router = APIRouter(prefix="/system", tags=["system"])
 
-
 def _verify_cron_secret(settings: Settings, authorization: str | None) -> None:
     if not settings.cron_secret:
         raise AuthorizationError("CRON_SECRET is not configured on this instance.")
     expected_header = f"Bearer {settings.cron_secret}"
     if not authorization or not hmac.compare_digest(authorization, expected_header):
         raise AuthorizationError("Invalid cron authorization bearer secret.")
-
 
 @router.get(
     "/cron/daily-maintenance",
@@ -57,7 +55,6 @@ async def run_daily_maintenance_cron(
         meta=meta,
     )
 
-
 @router.get(
     "/cron/ingest-air-quality",
     response_model=ApiResponse[dict[str, object]],
@@ -73,7 +70,6 @@ async def run_air_quality_ingestion_cron(
     aq_service = AirQualityTelemetryService(session=db, settings=settings)
     stats = await aq_service.ingest_priority_cities()
     return ApiResponse(data={"status": "completed", **stats}, meta=meta)
-
 
 @router.get(
     "/cron/evaluate-alerts",

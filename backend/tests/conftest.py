@@ -29,7 +29,6 @@ from app.main import create_app
 from app.services.air_quality.cache import telemetry_cache
 from app.services.alerts.alert_service import alert_deduplicator
 
-
 @pytest_asyncio.fixture
 async def db_engine(tmp_path: Path) -> AsyncIterator[AsyncEngine]:
     db_file = tmp_path / "airwise_test.sqlite3"
@@ -45,7 +44,6 @@ async def db_engine(tmp_path: Path) -> AsyncIterator[AsyncEngine]:
         await conn.run_sync(Base.metadata.create_all)
     yield engine
     await engine.dispose()
-
 
 @pytest_asyncio.fixture
 async def api_client(db_engine: AsyncEngine) -> AsyncIterator[AsyncClient]:

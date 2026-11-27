@@ -7,14 +7,12 @@ from app.db.session import get_session_factory
 from app.services.air_quality.telemetry_service import AirQualityTelemetryService
 from app.workers.celery_app import celery_app
 
-
 async def _run_priority_ingestion() -> dict[str, int]:
     settings = get_settings()
     session_factory = get_session_factory()
     async with session_factory() as session:
         service = AirQualityTelemetryService(session=session, settings=settings)
         return await service.ingest_priority_cities()
-
 
 @celery_app.task(
     name="app.workers.ingestion_tasks.poll_air_quality_sources",

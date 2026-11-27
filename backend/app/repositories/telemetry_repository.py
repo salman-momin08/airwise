@@ -22,7 +22,6 @@ from app.services.air_quality.aqi_calculator import PollutantCode
 
 EARTH_RADIUS_KM = 6371.0
 
-
 def haversine_distance_km(
     lat1: float, lon1: float, lat2: float, lon2: float
 ) -> float:
@@ -35,7 +34,6 @@ def haversine_distance_km(
         + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2.0) ** 2
     )
     return round(2.0 * EARTH_RADIUS_KM * math.atan2(math.sqrt(a), math.sqrt(1.0 - a)), 2)
-
 
 class TelemetryRepository:
     """Async SQLAlchemy 2.x repository for environmental sources, stations, and time series."""

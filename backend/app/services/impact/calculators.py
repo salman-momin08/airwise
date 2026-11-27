@@ -6,7 +6,6 @@ from typing import Literal
 
 ConfidenceLevel = Literal["low", "medium", "high"]
 
-
 @dataclass(frozen=True)
 class ImpactResult:
     """Deterministic environmental impact estimate schema (LLM-immutable)."""
@@ -24,7 +23,6 @@ class ImpactResult:
     calculated_at: str = field(
         default_factory=lambda: datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
     )
-
 
 def calculate_transport_emissions(
     *,
@@ -66,7 +64,6 @@ def calculate_transport_emissions(
         confidence="medium",
     )
 
-
 def calculate_household_energy_emissions(
     *,
     baseline_power_kw: float,
@@ -102,7 +99,6 @@ def calculate_household_energy_emissions(
         source_references=[grid_source_reference],
         confidence="medium",
     )
-
 
 def calculate_indoor_filtration_ach(
     *,
@@ -164,7 +160,6 @@ def calculate_indoor_filtration_ach(
         source_references=["US EPA Guide to Air Cleaners in the Home (CADR/ACH sizing)"],
         confidence="low" if has_active_indoor_smoke else "medium",
     )
-
 
 def estimate_relative_exposure_change(
     *,

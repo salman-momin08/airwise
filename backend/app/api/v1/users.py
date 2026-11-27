@@ -22,7 +22,6 @@ from app.services.auth.user_service import UserAccountService
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-
 @router.get("/me", response_model=ApiResponse[UserMeData])
 async def get_user_profile(
     principal: Annotated[AuthenticatedPrincipal, Depends(require_authenticated_user)],
@@ -33,7 +32,6 @@ async def get_user_profile(
     service = UserAccountService(session=db, settings=settings)
     data = await service.get_me(user_id=principal.user_id)
     return ApiResponse(data=data, meta=meta)
-
 
 @router.patch(
     "/me",
@@ -56,7 +54,6 @@ async def update_user_profile_and_preferences(
     )
     return ApiResponse(data=updated, meta=meta)
 
-
 @router.get("/me/export", response_model=ApiResponse[AccountExportData])
 async def export_user_account_data(
     request: Request,
@@ -71,7 +68,6 @@ async def export_user_account_data(
         client_ip=get_client_ip(request),
     )
     return ApiResponse(data=export_payload, meta=meta)
-
 
 @router.delete(
     "/me",

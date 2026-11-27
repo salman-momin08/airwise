@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import ClassVar, Protocol
 
 import httpx
 import structlog
@@ -13,22 +13,19 @@ logger = structlog.get_logger(__name__)
 
 RESEND_API_URL = "https://api.resend.com/emails"
 
-
 @dataclass(frozen=True)
 class TransactionalEmailMessage:
     to_email: str
     subject: str
     text_body: str
 
-
 class EmailProvider(Protocol):
     async def send_email(self, message: TransactionalEmailMessage) -> str: ...
-
 
 class ConsoleEmailProvider:
     """Development & test email sink that records redacted delivery metadata without leaking PII."""
 
-    last_outbox: list[TransactionalEmailMessage] = []
+    last_outbox: ClassVar[list[TransactionalEmailMessage]] = []
 
     async def send_email(self, message: TransactionalEmailMessage) -> str:
         if get_settings().app_env in {"development", "test"}:
@@ -37,7 +34,6 @@ class ConsoleEmailProvider:
                 self.last_outbox.pop(0)
         logger.info("transactional_email_dispatched_console", subject=message.subject)
         return "console-delivery"
-
 
 class ResendEmailProvider:
     """Zero-cost friendly transactional email adapter via Resend HTTPS API."""
@@ -74,7 +70,6 @@ class ResendEmailProvider:
                     code="EMAIL_PROVIDER_UNAVAILABLE",
                     message="Transactional email delivery is temporarily unavailable.",
                 ) from exc
-
 
 def get_email_provider() -> EmailProvider:
     settings = get_settings()

@@ -26,7 +26,6 @@ from app.db.session import get_db_session
 from app.integrations.http_resilience import close_shared_http_clients
 from app.schemas.common import ErrorDetail, ErrorResponse, HealthStatus
 
-
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
@@ -36,7 +35,6 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     finally:
         await close_shared_http_clients()
         await close_gemini_http_client()
-
 
 def create_app() -> FastAPI:
     settings = get_settings()
@@ -155,6 +153,5 @@ def create_app() -> FastAPI:
     if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
         FastAPIInstrumentor.instrument_app(app)
     return app
-
 
 app = create_app()

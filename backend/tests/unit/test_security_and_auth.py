@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 import uuid
+from pathlib import Path
 
 import pytest
 from pydantic import BaseModel
@@ -21,7 +23,6 @@ from app.core.security import (
 from app.services.air_quality.cache import MAX_LOCAL_CACHE_ENTRIES, StaleAwareTelemetryCache
 from app.services.alerts.alert_service import AlertDeduplicator
 
-
 def test_argon2id_password_hashing_and_verification() -> None:
     hashed = hash_password("SmogSafe2026!")
     assert hashed.startswith("$argon2id$")
@@ -29,7 +30,6 @@ def test_argon2id_password_hashing_and_verification() -> None:
     assert verify_password(hashed, "WrongPassword2026!") is False
     assert verify_password(None, "SmogSafe2026!") is False
     assert verify_password("malformed-hash", "SmogSafe2026!") is False
-
 
 def test_csrf_double_submit_and_origin_validation() -> None:
     assert verify_csrf_double_submit("tok-123", "tok-123") is True
@@ -41,7 +41,6 @@ def test_csrf_double_submit_and_origin_validation() -> None:
     assert is_trusted_origin(None, "http://localhost:3000/dashboard/settings", allowed) is True
     assert is_trusted_origin("https://evil.example.com", None, allowed) is False
 
-
 def test_hmac_token_and_ip_pseudonymization() -> None:
     secret = "unit-test-secret-key-with-sufficient-length"
     digest_a = hash_token("raw-session-token", secret)
@@ -50,7 +49,6 @@ def test_hmac_token_and_ip_pseudonymization() -> None:
     assert digest_a != "raw-session-token"
     assert hash_ip_address("203.0.113.10", secret) is not None
     assert hash_ip_address(None, secret) is None
-
 
 def test_redis_url_normalization_handles_quotes_cli_and_disabled_sentinels() -> None:
     quoted = Settings(redis_url=' "rediss://default:pw@example.upstash.io:6379" \n')
@@ -68,10 +66,8 @@ def test_redis_url_normalization_handles_quotes_cli_and_disabled_sentinels() -> 
     assert Settings(redis_url="   ").redis_url == ""
     assert Settings(redis_url="none").redis_url == ""
 
-
 class _DummyCachedPayload(BaseModel):
     city: str
-
 
 async def test_redis_consumers_degrade_gracefully_on_invalid_url_scheme(
     monkeypatch: pytest.MonkeyPatch,
@@ -105,7 +101,6 @@ async def test_redis_consumers_degrade_gracefully_on_invalid_url_scheme(
     local_budget = TokenBudget(disabled_redis, uuid.uuid4())
     await local_budget.reserve(100)
     get_settings.cache_clear()
-
 
 async def test_settings_secret_repr_redaction_and_bounded_local_memory() -> None:
     cfg = Settings(
@@ -160,4 +155,30 @@ async def test_settings_secret_repr_redaction_and_bounded_local_memory() -> None
         await limiter.check("public_aqi", f"198.51.100.{idx}", limit=5, window_seconds=60)
     assert len(limiter._memory_windows) <= MAX_LOCAL_RATE_WINDOWS
 
-
+def test_no_multiple_consecutive_blank_lines_across_codebase() -> None:
+    repo_root = Path(__file__).resolve().parents[3]
+    skip_dirs = {
+        ".git",
+        ".venv",
+        "node_modules",
+        ".next",
+        "airwise_backend.egg-info",
+        "__pycache__",
+        "playwright-report",
+        "test-results",
+    }
+    multi_blank_pattern = re.compile(r"(?:\r?\n[ \t]*){3,}")
+    offenders: list[str] = []
+    for path in repo_root.rglob("*"):
+        if any(part in skip_dirs for part in path.parts) or not path.is_file():
+            continue
+        raw = path.read_bytes()
+        if not raw:
+            continue
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+        if multi_blank_pattern.search(text):
+            offenders.append(path.relative_to(repo_root).as_posix())
+    assert offenders == []

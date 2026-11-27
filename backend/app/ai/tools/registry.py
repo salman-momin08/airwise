@@ -3,11 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-
 class ToolAuthScope(StrEnum):
     PUBLIC_OR_USER = "public_or_user"
     AUTHENTICATED_SELF = "authenticated_self"
-
 
 @dataclass(frozen=True)
 class AllowlistedToolSpec:
@@ -15,7 +13,6 @@ class AllowlistedToolSpec:
     description: str
     auth_scope: ToolAuthScope
     requires_preference_consent: bool = False
-
 
 ALLOWLISTED_AI_TOOLS: tuple[AllowlistedToolSpec, ...] = (
     AllowlistedToolSpec(

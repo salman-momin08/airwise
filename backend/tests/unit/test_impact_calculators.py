@@ -9,7 +9,6 @@ from app.services.impact.calculators import (
     estimate_relative_exposure_change,
 )
 
-
 class TestDeterministicImpactCalculators(unittest.TestCase):
     def test_transport_emissions_accounts_for_vehicle_occupancy(self) -> None:
         # Solo car (0.18 kg/vkm, occ 1) vs 3-person carpool (0.18 kg/vkm, occ 3) over 20 km
@@ -70,7 +69,6 @@ class TestDeterministicImpactCalculators(unittest.TestCase):
         self.assertEqual(exp.baseline_value, 180.0)
         self.assertEqual(exp.alternative_value, 63.0)
         self.assertEqual(exp.estimated_difference, 117.0)
-
 
 if __name__ == "__main__":
     unittest.main()

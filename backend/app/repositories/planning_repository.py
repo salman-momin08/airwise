@@ -18,7 +18,6 @@ from app.models.planning import (
     UserAction,
 )
 
-
 class PlanningRepository:
     """Async SQLAlchemy 2.x repository enforcing strict object-level user_id ownership."""
 

@@ -30,7 +30,6 @@ GEOGRAPHY_POINT_VARIANT = Text().with_variant(
     "postgresql",
 )
 
-
 class StringListType(TypeDecorator[list[str]]):
     """Cross-dialect list[str] stored as JSONB/JSON for PostgreSQL & SQLite test parity."""
 
@@ -42,10 +41,8 @@ class StringListType(TypeDecorator[list[str]]):
             return dialect.type_descriptor(JSONB())
         return dialect.type_descriptor(JSON())
 
-
 def utc_now() -> datetime:
     return datetime.now(tz=UTC)
-
 
 class User(Base):
     __tablename__ = "users"
@@ -71,7 +68,6 @@ class User(Base):
         "UserPreference", back_populates="user", uselist=False
     )
 
-
 class UserProfile(Base):
     __tablename__ = "user_profiles"
 
@@ -90,7 +86,6 @@ class UserProfile(Base):
 
     user: Mapped[User] = relationship("User", back_populates="profile")
 
-
 class UserSession(Base):
     __tablename__ = "user_sessions"
     __table_args__ = (Index("ix_user_sessions_user_id_revoked_at", "user_id", "revoked_at"),)
@@ -108,7 +103,6 @@ class UserSession(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
-
 
 class UserPreference(Base):
     __tablename__ = "user_preferences"
@@ -137,7 +131,6 @@ class UserPreference(Base):
     )
 
     user: Mapped[User] = relationship("User", back_populates="preferences")
-
 
 class SavedLocation(Base):
     __tablename__ = "saved_locations"
@@ -172,7 +165,6 @@ class SavedLocation(Base):
         DateTime(timezone=True), nullable=False, default=utc_now
     )
 
-
 class UserActionToken(Base):
     """Single-use hashed tokens for email verification and password reset."""
 
@@ -190,7 +182,6 @@ class UserActionToken(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
-
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
@@ -210,7 +201,6 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
-
 
 class SystemSetting(Base):
     __tablename__ = "system_settings"

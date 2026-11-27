@@ -19,10 +19,8 @@ down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-
 def _is_postgresql() -> bool:
     return op.get_bind().dialect.name == "postgresql"
-
 
 def upgrade() -> None:
     is_pg = _is_postgresql()
@@ -229,7 +227,6 @@ def upgrade() -> None:
         ["actor_user_id", "created_at"],
         unique=False,
     )
-
 
 def downgrade() -> None:
     is_pg = _is_postgresql()

@@ -18,7 +18,6 @@ down_revision: str | None = "20261126_0005"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-
 def upgrade() -> None:
     is_pg = op.get_bind().dialect.name == "postgresql"
     json_type: sa.types.TypeEngine[object] = postgresql.JSONB() if is_pg else sa.JSON()
@@ -30,7 +29,6 @@ def upgrade() -> None:
         sa.Column("updated_by", sa.Uuid(as_uuid=True), sa.ForeignKey("users.id"), nullable=True),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
-
 
 def downgrade() -> None:
     op.drop_table("system_settings")

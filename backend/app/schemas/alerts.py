@@ -29,7 +29,6 @@ DeliveryStatusLiteral = Literal[
 
 HHMM_PATTERN = r"^(?:[01]\d|2[0-3]):[0-5]\d$"
 
-
 def _validate_iana_timezone(tz_name: str) -> str:
     cleaned = tz_name.strip()
     try:
@@ -38,10 +37,8 @@ def _validate_iana_timezone(tz_name: str) -> str:
         raise ValueError(f"Unknown IANA timezone '{cleaned}'.") from exc
     return cleaned
 
-
 def _default_alert_channels() -> list[AlertChannelLiteral]:
     return ["in_app"]
-
 
 class CreateAlertRuleRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -75,7 +72,6 @@ class CreateAlertRuleRequest(BaseModel):
             raise ValueError("threshold_value is required when alert_type is 'aqi_threshold'.")
         return self
 
-
 class UpdateAlertRuleRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -101,7 +97,6 @@ class UpdateAlertRuleRequest(BaseModel):
             )
         return self
 
-
 class AlertRuleSchema(BaseModel):
     id: UUID
     location_id: UUID | None = None
@@ -118,7 +113,6 @@ class AlertRuleSchema(BaseModel):
     last_triggered_at: datetime | None = None
     created_at: datetime
 
-
 class NotificationDeliverySchema(BaseModel):
     id: UUID
     channel: AlertChannelLiteral
@@ -126,7 +120,6 @@ class NotificationDeliverySchema(BaseModel):
     provider_message_id: str | None = None
     attempt_count: int
     delivered_at: datetime | None = None
-
 
 class NotificationSchema(BaseModel):
     id: UUID
@@ -138,7 +131,6 @@ class NotificationSchema(BaseModel):
     read_at: datetime | None = None
     created_at: datetime
     deliveries: list[NotificationDeliverySchema] = Field(default_factory=list)
-
 
 class AlertEvaluationSummarySchema(BaseModel):
     evaluated_rules: int

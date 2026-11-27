@@ -4,7 +4,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-
 class CurrentWeatherSchema(BaseModel):
     city: str
     temperature_c: float

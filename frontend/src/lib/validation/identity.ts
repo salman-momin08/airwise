@@ -1,3 +1,4 @@
+import { COMMUTE_MODE_VALUES } from "@/lib/constants/commute-modes";
 import { z } from "zod";
 
 const passwordPolicy = z
@@ -51,18 +52,7 @@ export const profileSettingsSchema = z.object({
 });
 export type ProfileSettingsFormValues = z.infer<typeof profileSettingsSchema>;
 
-export const commuteModeValues = [
-  "walk",
-  "bicycle",
-  "two_wheeler_petrol",
-  "two_wheeler_ev",
-  "car_solo_petrol",
-  "car_ev",
-  "carpool_3",
-  "bus",
-  "metro_rail",
-  "work_from_home",
-] as const;
+export const commuteModeValues = COMMUTE_MODE_VALUES;
 
 export const preferencesSchema = z.object({
   age_category: z

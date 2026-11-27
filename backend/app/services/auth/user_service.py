@@ -30,12 +30,10 @@ from app.schemas.identity import (
     UserProfileData,
 )
 
-
 def _ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
-
 
 def serialize_saved_location(record: SavedLocation) -> SavedLocationData:
     return SavedLocationData(
@@ -53,7 +51,6 @@ def serialize_saved_location(record: SavedLocation) -> SavedLocationData:
         is_primary=record.is_primary,
         created_at=_ensure_utc(record.created_at),
     )
-
 
 def _serialize_user_me(user: User) -> UserMeData:
     now = datetime.now(tz=UTC)
@@ -126,7 +123,6 @@ def _serialize_user_me(user: User) -> UserMeData:
         preferences=prefs_data,
     )
 
-
 class UserAccountService:
     """Service managing user profile, consented household preferences, export, and erasure."""
 
@@ -140,6 +136,56 @@ class UserAccountService:
         if user is None:
             raise ResourceNotFoundError("User account was not found.")
         return _serialize_user_me(user)
+
+    def _apply_profile_patch(
+        self, user: User, profile_fields: dict[str, object], now: datetime
+    ) -> None:
+        if user.profile is None:
+            user.profile = UserProfile(
+                user_id=user.id,
+                display_name=user.email.split("@")[0],
+                locale="en",
+                preferred_aqi_standard="india_naqi",
+                timezone="Asia/Kolkata",
+                updated_at=now,
+            )
+            self._session.add(user.profile)
+
+        for field_name, field_value in profile_fields.items():
+            if field_value is None:
+                continue
+            cleaned = (
+                field_value.strip()
+                if field_name == "display_name" and isinstance(field_value, str)
+                else field_value
+            )
+            setattr(user.profile, field_name, cleaned)
+        user.profile.updated_at = now
+
+    def _apply_preference_patch(
+        self, user: User, pref_fields: dict[str, object], now: datetime
+    ) -> None:
+        if user.preferences is None:
+            user.preferences = UserPreference(
+                user_id=user.id,
+                commute_modes=[],
+                has_hepa_purifier=False,
+                sustainability_goals=[],
+                save_chat_history=True,
+            )
+            self._session.add(user.preferences)
+
+        non_nullable = {
+            "commute_modes",
+            "sustainability_goals",
+            "has_hepa_purifier",
+            "save_chat_history",
+        }
+        for field_name, field_value in pref_fields.items():
+            if field_name in non_nullable and field_value is None:
+                continue
+            setattr(user.preferences, field_name, field_value)
+        user.preferences.consent_updated_at = now
 
     async def update_me(
         self,
@@ -156,45 +202,15 @@ class UserAccountService:
         changed_sections: list[str] = []
 
         if payload.profile is not None:
-            if user.profile is None:
-                user.profile = UserProfile(
-                    user_id=user.id,
-                    display_name=user.email.split("@")[0],
-                    locale="en",
-                    preferred_aqi_standard="india_naqi",
-                    timezone="Asia/Kolkata",
-                    updated_at=now,
-                )
-                self._session.add(user.profile)
-
-            profile_fields = payload.profile.model_dump(exclude_unset=True)
-            for field_name, field_value in profile_fields.items():
-                if field_value is not None:
-                    if field_name == "display_name" and isinstance(field_value, str):
-                        field_value = field_value.strip()
-                    setattr(user.profile, field_name, field_value)
-            user.profile.updated_at = now
+            self._apply_profile_patch(
+                user, payload.profile.model_dump(exclude_unset=True), now
+            )
             changed_sections.append("profile")
 
         if payload.preferences is not None:
-            if user.preferences is None:
-                user.preferences = UserPreference(
-                    user_id=user.id,
-                    commute_modes=[],
-                    has_hepa_purifier=False,
-                    sustainability_goals=[],
-                    save_chat_history=True,
-                )
-                self._session.add(user.preferences)
-
-            pref_fields = payload.preferences.model_dump(exclude_unset=True)
-            for field_name, field_value in pref_fields.items():
-                if field_name in {"commute_modes", "sustainability_goals"} and field_value is None:
-                    continue
-                if field_name in {"has_hepa_purifier", "save_chat_history"} and field_value is None:
-                    continue
-                setattr(user.preferences, field_name, field_value)
-            user.preferences.consent_updated_at = now
+            self._apply_preference_patch(
+                user, payload.preferences.model_dump(exclude_unset=True), now
+            )
             changed_sections.append("preferences")
 
         user.updated_at = now

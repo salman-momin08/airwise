@@ -26,7 +26,6 @@ _NO_STORE_PATH_PREFIXES = (
 )
 _OPENAPI_DOC_PATHS = frozenset({"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"})
 
-
 class CorrelationAndSecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Attach correlation request IDs, latency metrics, and HTTP security headers."""
 

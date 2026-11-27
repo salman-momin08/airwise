@@ -9,7 +9,6 @@ from app.core.exceptions import ResourceNotFoundError
 from app.models.assistant import AIGenerationMetadata, ChatConversation, ChatMessage
 from app.schemas.assistant import AssistantGuidance, ChatResult, ConversationData, MessageData
 
-
 class AssistantRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session

@@ -22,7 +22,6 @@ from app.schemas.common import ResponseMeta
 from app.schemas.identity import AQIStandardLiteral
 from app.services.auth.auth_service import AuthService, IssuedSessionBundle
 
-
 @dataclass(frozen=True)
 class AuthenticatedPrincipal:
     user_id: uuid.UUID
@@ -32,7 +31,6 @@ class AuthenticatedPrincipal:
     is_email_verified: bool = False
     preferred_aqi_standard: AQIStandardLiteral = "india_naqi"
     session_id: uuid.UUID | None = None
-
 
 @dataclass(frozen=True)
 class RequestPrincipal:
@@ -44,15 +42,12 @@ class RequestPrincipal:
     preferred_aqi_standard: AQIStandardLiteral = "india_naqi"
     session_id: uuid.UUID | None = None
 
-
 def get_response_meta(request: Request) -> ResponseMeta:
     request_id = getattr(request.state, "request_id", None) or str(uuid.uuid4())
     return ResponseMeta(request_id=request_id)
 
-
 def get_app_settings() -> Settings:
     return get_settings()
-
 
 def get_client_ip(request: Request) -> str | None:
     forwarded_for = request.headers.get("X-Forwarded-For")
@@ -61,7 +56,6 @@ def get_client_ip(request: Request) -> str | None:
     if request.client is not None:
         return request.client.host
     return None
-
 
 def attach_session_cookies(
     response: Response,
@@ -87,7 +81,6 @@ def attach_session_cookies(
         path="/",
     )
 
-
 def clear_session_cookies(response: Response, settings: Settings) -> None:
     response.delete_cookie(
         key=SESSION_COOKIE_NAME,
@@ -103,7 +96,6 @@ def clear_session_cookies(response: Response, settings: Settings) -> None:
         samesite="lax",
         path="/",
     )
-
 
 async def get_current_principal(
     request: Request,
@@ -149,7 +141,6 @@ async def get_current_principal(
     request.state.principal = principal
     return principal
 
-
 def require_authenticated_user(
     principal: Annotated[RequestPrincipal, Depends(get_current_principal)],
 ) -> AuthenticatedPrincipal:
@@ -165,7 +156,6 @@ def require_authenticated_user(
         session_id=principal.session_id,
     )
 
-
 def require_moderator_or_admin(
     principal: Annotated[AuthenticatedPrincipal, Depends(require_authenticated_user)],
 ) -> AuthenticatedPrincipal:
@@ -173,14 +163,12 @@ def require_moderator_or_admin(
         raise AuthorizationError("Moderator or administrator privileges are required.")
     return principal
 
-
 def require_admin_user(
     principal: Annotated[AuthenticatedPrincipal, Depends(require_authenticated_user)],
 ) -> AuthenticatedPrincipal:
     if principal.role != UserRole.ADMIN:
         raise AuthorizationError("Administrator privileges are required.")
     return principal
-
 
 def enforce_csrf_protection(
     request: Request,

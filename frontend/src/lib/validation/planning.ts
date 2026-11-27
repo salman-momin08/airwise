@@ -1,17 +1,7 @@
+import { COMMUTE_MODE_VALUES } from "@/lib/constants/commute-modes";
 import { z } from "zod";
 
-const commuteModeEnum = z.enum([
-  "walk",
-  "bicycle",
-  "two_wheeler_petrol",
-  "two_wheeler_ev",
-  "car_solo_petrol",
-  "car_ev",
-  "carpool_3",
-  "bus",
-  "metro_rail",
-  "work_from_home",
-]);
+const commuteModeEnum = z.enum(COMMUTE_MODE_VALUES);
 
 const aqiStandardEnum = z.enum(["india_naqi", "us_epa"]);
 

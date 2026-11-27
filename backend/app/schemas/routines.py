@@ -14,7 +14,6 @@ EnvironmentTypeLiteral = Literal["indoor", "outdoor", "transit"]
 RoutineStatusLiteral = Literal["draft", "confirmed", "archived"]
 ConfidenceLiteral = Literal["low", "medium", "high"]
 
-
 class EnvironmentalSnapshotSummarySchema(BaseModel):
     city: str
     standard: AQIStandard
@@ -34,7 +33,6 @@ class EnvironmentalSnapshotSummarySchema(BaseModel):
         "Indoor air quality is unmeasured unless a dedicated indoor PM2.5 sensor is connected."
     )
 
-
 class RoutineActivityInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -44,7 +42,6 @@ class RoutineActivityInput(BaseModel):
     title: str = Field(min_length=2, max_length=200)
     environment_type: EnvironmentTypeLiteral
     safer_alternative: str | None = Field(default=None, max_length=400)
-
 
 class RoutineActivitySchema(BaseModel):
     id: UUID
@@ -61,7 +58,6 @@ class RoutineActivitySchema(BaseModel):
     impact_estimate: ImpactEstimateSchema | None = None
     confidence: ConfidenceLiteral
 
-
 class GenerateRoutineRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -71,13 +67,11 @@ class GenerateRoutineRequest(BaseModel):
     location_id: UUID | None = None
     commute_distance_km: float = Field(default=10.0, ge=0, le=200)
 
-
 class UpdateRoutineRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: RoutineStatusLiteral | None = None
     activities: list[RoutineActivityInput] | None = Field(default=None, min_length=1, max_length=10)
-
 
 class DailyRoutineSchema(BaseModel):
     id: UUID
@@ -93,7 +87,6 @@ class DailyRoutineSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-
 class RoutineWindowOptionSchema(BaseModel):
     time_block: TimeBlockLiteral
     window_label: str
@@ -102,7 +95,6 @@ class RoutineWindowOptionSchema(BaseModel):
     outdoor_exertion_allowed: bool
     recommended_environment: EnvironmentTypeLiteral
     rationale: str
-
 
 class RoutineComparisonSchema(BaseModel):
     city: str

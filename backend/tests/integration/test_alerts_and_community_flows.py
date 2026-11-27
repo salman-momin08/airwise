@@ -24,13 +24,11 @@ from app.schemas.assistant import ChatRequest, ToolCall
 from app.services.air_quality.aqi_calculator import AQIStandard
 from app.services.alerts.alert_service import SmartAlertService
 
-
 def _csrf(client: AsyncClient) -> dict[str, str]:
     return {
         "X-CSRF-Token": client.cookies.get("airwise_csrf", ""),
         "Origin": "http://localhost:3000",
     }
-
 
 async def _register(
     client: AsyncClient, email: str, display_name: str = "Test Resident"
@@ -47,7 +45,6 @@ async def _register(
     assert res.status_code == 201
     return uuid.UUID(str(res.json()["data"]["user_id"]))
 
-
 class _StubGateway:
     model_name = "gemini-stub"
     token_usage = 0
@@ -61,7 +58,6 @@ class _StubGateway:
         self, text: str, *, task: Literal["RETRIEVAL_QUERY", "RETRIEVAL_DOCUMENT"]
     ) -> list[float]:
         return [1.0] + [0.0] * 767
-
 
 async def test_alert_deduplication_quiet_hours_opt_out_and_idor_isolation(
     api_client: AsyncClient,
@@ -189,7 +185,6 @@ async def test_alert_deduplication_quiet_hours_opt_out_and_idor_isolation(
             headers=_csrf(api_client),
         )
     ).status_code == 404
-
 
 async def test_community_privacy_consent_moderation_ai_tool_and_account_anonymization(
     api_client: AsyncClient,

@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from httpx import AsyncClient
 
-
 def _extract_auth_cookies(client: AsyncClient) -> tuple[str, str]:
     return (
         client.cookies.get("airwise_session", ""),
         client.cookies.get("airwise_csrf", ""),
     )
-
 
 async def test_csrf_and_untrusted_origin_rejection(api_client: AsyncClient) -> None:
     await api_client.post(
@@ -39,7 +37,6 @@ async def test_csrf_and_untrusted_origin_rejection(api_client: AsyncClient) -> N
     )
     assert bad_origin.status_code == 403
     assert bad_origin.json()["error"]["code"] == "AUTH_CSRF_INVALID"
-
 
 async def test_cross_user_idor_location_and_session_isolation(api_client: AsyncClient) -> None:
     # Register User A and create a saved location
@@ -116,7 +113,6 @@ async def test_cross_user_idor_location_and_session_isolation(api_client: AsyncC
     alice_check = await api_client.get("/api/v1/locations")
     assert len(alice_check.json()["data"]) == 1
 
-
 async def test_rotated_session_reuse_detection_invalidates_all_sessions(
     api_client: AsyncClient,
 ) -> None:
@@ -152,7 +148,6 @@ async def test_rotated_session_reuse_detection_invalidates_all_sessions(
     me_after_replay = await api_client.get("/api/v1/users/me")
     assert me_after_replay.status_code == 401
 
-
 async def test_vercel_cron_endpoint_enforces_bearer_secret(api_client: AsyncClient) -> None:
     unauth = await api_client.get("/api/v1/system/cron/daily-maintenance")
     assert unauth.status_code == 403
@@ -170,7 +165,6 @@ async def test_vercel_cron_endpoint_enforces_bearer_secret(api_client: AsyncClie
     assert ok.status_code == 200
     assert ok.json()["data"]["status"] == "completed"
 
-
 async def test_http_security_headers_and_sensitive_cache_control(
     api_client: AsyncClient,
 ) -> None:
@@ -186,4 +180,3 @@ async def test_http_security_headers_and_sensitive_cache_control(
     me_res = await api_client.get("/api/v1/auth/me")
     assert me_res.status_code == 200
     assert me_res.headers["Cache-Control"] == "no-store"
-

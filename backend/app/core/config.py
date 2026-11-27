@@ -15,13 +15,11 @@ _REPO_ROOT_DIR = _BACKEND_DIR.parent
 VALID_REDIS_SCHEMES = ("redis://", "rediss://", "unix://")
 _DISABLED_REDIS_SENTINELS = frozenset({"", "none", "null", "false", "disabled"})
 
-
 def _strip_wrapping_quotes(value: str) -> str:
     trimmed = value.strip()
     if len(trimmed) >= 2 and trimmed[0] == trimmed[-1] and trimmed[0] in {'"', "'"}:
         return trimmed[1:-1].strip()
     return trimmed
-
 
 def _upgrade_managed_tls_scheme(url: str) -> str:
     """Upstash endpoints require TLS (`rediss://`); plain `redis://` drops immediately."""
@@ -31,7 +29,6 @@ def _upgrade_managed_tls_scheme(url: str) -> str:
     if hostname.endswith(".upstash.io"):
         return "rediss://" + url.removeprefix("redis://")
     return url
-
 
 def normalize_redis_url(raw: str) -> str:
     """Normalize common Vercel/Upstash paste variants (quotes, whitespace, redis-cli, TLS)."""
@@ -56,10 +53,8 @@ def normalize_redis_url(raw: str) -> str:
             return _upgrade_managed_tls_scheme(extracted)
     return _upgrade_managed_tls_scheme(cleaned)
 
-
 def is_valid_redis_url(url: str) -> bool:
     return bool(url) and url.startswith(VALID_REDIS_SCHEMES)
-
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -155,7 +150,6 @@ class Settings(BaseSettings):
             if self.auth_secret_key.startswith("dev-only"):
                 raise ValueError("Production AUTH_SECRET_KEY must not use the dev placeholder.")
         return self
-
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

@@ -14,7 +14,125 @@ import {
   type HouseholdEnergyFormValues,
   type LogActionFormValues,
 } from "@/lib/validation/planning";
-import type { ImpactEstimate } from "@/types/planning";
+import type {
+  ImpactEstimate,
+  ImpactSummary,
+  LoggedUserAction,
+} from "@/types/planning";
+
+function ImpactSummaryBanner({
+  isLoading,
+  unauthenticated,
+  summary,
+}: {
+  isLoading: boolean;
+  unauthenticated: boolean;
+  summary: ImpactSummary | undefined;
+}) {
+  if (isLoading) {
+    return (
+      <div
+        aria-busy="true"
+        className="h-36 animate-pulse rounded-card border border-border bg-surface p-6"
+      />
+    );
+  }
+  if (unauthenticated) {
+    return (
+      <div role="status" className="rounded-card border border-border bg-surface p-6 text-sm">
+        <p>
+          <Link href="/login" className="font-semibold text-brand-primary underline">
+            Sign in
+          </Link>{" "}
+          to view your cumulative avoided-CO₂e summary and save voluntary actions. Guest household
+          energy calculations remain available below.
+        </p>
+      </div>
+    );
+  }
+  if (!summary) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Personal environmental impact summary"
+      className="space-y-4 rounded-card border border-border bg-surface p-6"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">Cumulative Self-Reported Impact Summary</h2>
+        <span className="rounded-full border border-text-secondary px-2.5 py-0.5 text-xs font-semibold">
+          Deterministic Estimates (is_estimate: true)
+        </span>
+      </div>
+
+      <dl className="grid gap-4 sm:grid-cols-4">
+        <div className="rounded-lg border border-border p-4">
+          <dt className="text-xs text-text-secondary">Logged Actions</dt>
+          <dd className="mt-1 text-2xl font-bold">{summary.total_logged_actions}</dd>
+        </div>
+        <div className="rounded-lg border border-brand-primary/50 bg-brand-accent/30 p-4">
+          <dt className="text-xs text-text-secondary">Total Avoided CO₂e</dt>
+          <dd className="mt-1 text-2xl font-bold">
+            {summary.estimated_avoided_co2e_kg} <span className="text-xs font-normal">kg</span>
+          </dd>
+        </div>
+        <div className="rounded-lg border border-border p-4">
+          <dt className="text-xs text-text-secondary">Transport Avoided</dt>
+          <dd className="mt-1 text-2xl font-bold">
+            {summary.transport_avoided_co2e_kg} <span className="text-xs font-normal">kg</span>
+          </dd>
+        </div>
+        <div className="rounded-lg border border-border p-4">
+          <dt className="text-xs text-text-secondary">Energy Avoided</dt>
+          <dd className="mt-1 text-2xl font-bold">
+            {summary.energy_avoided_co2e_kg} <span className="text-xs font-normal">kg</span>
+          </dd>
+        </div>
+      </dl>
+
+      <p className="text-xs text-text-secondary">{summary.methodology_disclaimer}</p>
+    </section>
+  );
+}
+
+function LoggedActionHistorySection({ history }: { history: LoggedUserAction[] }) {
+  return (
+    <section
+      aria-label="Logged action history"
+      className="space-y-3 rounded-card border border-border bg-surface p-6"
+    >
+      <h2 className="text-base font-semibold">Recent Self-Reported Actions</h2>
+      {history.length === 0 ? (
+        <p className="text-sm text-text-secondary">
+          No actions logged yet. Compare a commute on Sustainable Transport or log a household
+          action above.
+        </p>
+      ) : (
+        <ul className="space-y-3 text-sm">
+          {history.map((item) => (
+            <li
+              key={item.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
+            >
+              <div>
+                <p className="font-medium text-text-primary">{item.title}</p>
+                <p className="text-xs text-text-secondary">
+                  {item.quantity} {item.unit} · Self-reported ·{" "}
+                  {new Date(item.occurred_at).toLocaleString()}
+                </p>
+              </div>
+              {item.impact_estimate ? (
+                <span className="rounded-full border border-brand-primary/60 bg-brand-accent/40 px-3 py-1 text-xs font-semibold">
+                  Est. Δ {item.impact_estimate.estimated_difference} {item.impact_estimate.unit}
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 export function ImpactTrackerWorkspace() {
   const queryClient = useQueryClient();
@@ -92,63 +210,15 @@ export function ImpactTrackerWorkspace() {
   const summary = summaryQuery.data?.data;
   const history = historyQuery.data?.data ?? [];
 
+  const titleError = actionForm.formState.errors.title;
+
   return (
     <div className="mt-6 space-y-6 text-text-primary">
-      {summaryQuery.isLoading ? (
-        <div
-          aria-busy="true"
-          className="h-36 animate-pulse rounded-card border border-border bg-surface p-6"
-        />
-      ) : unauthenticated ? (
-        <div role="status" className="rounded-card border border-border bg-surface p-6 text-sm">
-          <p>
-            <Link href="/login" className="font-semibold text-brand-primary underline">
-              Sign in
-            </Link>{" "}
-            to view your cumulative avoided-CO₂e summary and save voluntary actions. Guest
-            household energy calculations remain available below.
-          </p>
-        </div>
-      ) : summary ? (
-        <section
-          aria-label="Personal environmental impact summary"
-          className="space-y-4 rounded-card border border-border bg-surface p-6"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">Cumulative Self-Reported Impact Summary</h2>
-            <span className="rounded-full border border-text-secondary px-2.5 py-0.5 text-xs font-semibold">
-              Deterministic Estimates (is_estimate: true)
-            </span>
-          </div>
-
-          <dl className="grid gap-4 sm:grid-cols-4">
-            <div className="rounded-lg border border-border p-4">
-              <dt className="text-xs text-text-secondary">Logged Actions</dt>
-              <dd className="mt-1 text-2xl font-bold">{summary.total_logged_actions}</dd>
-            </div>
-            <div className="rounded-lg border border-brand-primary/50 bg-brand-accent/30 p-4">
-              <dt className="text-xs text-text-secondary">Total Avoided CO₂e</dt>
-              <dd className="mt-1 text-2xl font-bold">
-                {summary.estimated_avoided_co2e_kg} <span className="text-xs font-normal">kg</span>
-              </dd>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <dt className="text-xs text-text-secondary">Transport Avoided</dt>
-              <dd className="mt-1 text-2xl font-bold">
-                {summary.transport_avoided_co2e_kg} <span className="text-xs font-normal">kg</span>
-              </dd>
-            </div>
-            <div className="rounded-lg border border-border p-4">
-              <dt className="text-xs text-text-secondary">Energy Avoided</dt>
-              <dd className="mt-1 text-2xl font-bold">
-                {summary.energy_avoided_co2e_kg} <span className="text-xs font-normal">kg</span>
-              </dd>
-            </div>
-          </dl>
-
-          <p className="text-xs text-text-secondary">{summary.methodology_disclaimer}</p>
-        </section>
-      ) : null}
+      <ImpactSummaryBanner
+        isLoading={summaryQuery.isLoading}
+        unauthenticated={unauthenticated}
+        summary={summary}
+      />
 
       <form
         onSubmit={energyForm.handleSubmit((vals) => energyMutation.mutate(vals))}
@@ -264,10 +334,8 @@ export function ImpactTrackerWorkspace() {
               </label>
             </div>
           </div>
-          {actionForm.formState.errors.title ? (
-            <p className="text-xs text-red-700 dark:text-red-300">
-              {actionForm.formState.errors.title.message}
-            </p>
+          {titleError ? (
+            <p className="text-xs text-red-700 dark:text-red-300">{titleError.message}</p>
           ) : null}
           <button
             type="submit"
@@ -279,42 +347,7 @@ export function ImpactTrackerWorkspace() {
         </form>
       ) : null}
 
-      {!unauthenticated ? (
-        <section
-          aria-label="Logged action history"
-          className="space-y-3 rounded-card border border-border bg-surface p-6"
-        >
-          <h2 className="text-base font-semibold">Recent Self-Reported Actions</h2>
-          {history.length === 0 ? (
-            <p className="text-sm text-text-secondary">
-              No actions logged yet. Compare a commute on Sustainable Transport or log a household
-              action above.
-            </p>
-          ) : (
-            <ul className="space-y-3 text-sm">
-              {history.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
-                >
-                  <div>
-                    <p className="font-medium text-text-primary">{item.title}</p>
-                    <p className="text-xs text-text-secondary">
-                      {item.quantity} {item.unit} · Self-reported ·{" "}
-                      {new Date(item.occurred_at).toLocaleString()}
-                    </p>
-                  </div>
-                  {item.impact_estimate ? (
-                    <span className="rounded-full border border-brand-primary/60 bg-brand-accent/40 px-3 py-1 text-xs font-semibold">
-                      Est. Δ {item.impact_estimate.estimated_difference} {item.impact_estimate.unit}
-                    </span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ) : null}
+      {!unauthenticated ? <LoggedActionHistorySection history={history} /> : null}
     </div>
   );
 }

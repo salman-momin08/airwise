@@ -18,10 +18,8 @@ from app.models.assistant import EMBEDDING_DIMENSIONS
 logger = structlog.get_logger(__name__)
 OutputModel = TypeVar("OutputModel", bound=BaseModel)
 
-
 class OutputValidationError(ValueError):
     """The provider returned content outside the requested output contract."""
-
 
 class LLMGateway(Protocol):
     model_name: str
@@ -35,44 +33,35 @@ class LLMGateway(Protocol):
         self, text: str, *, task: Literal["RETRIEVAL_QUERY", "RETRIEVAL_DOCUMENT"]
     ) -> list[float]: ...
 
-
 class GeminiPart(BaseModel):
     text: str = ""
     thought: bool = False
 
-
 class GeminiContent(BaseModel):
     parts: list[GeminiPart] = Field(default_factory=list)
-
 
 class GeminiCandidate(BaseModel):
     content: GeminiContent = Field(default_factory=GeminiContent)
     finish_reason: str = Field(default="", alias="finishReason")
 
-
 class GeminiUsage(BaseModel):
     total_token_count: int = Field(default=0, ge=0, alias="totalTokenCount")
-
 
 class GeminiResponse(BaseModel):
     candidates: list[GeminiCandidate] = Field(default_factory=list, max_length=1)
     usage_metadata: GeminiUsage = Field(default_factory=GeminiUsage, alias="usageMetadata")
 
-
 class GeminiEmbedding(BaseModel):
     values: list[float] = Field(min_length=EMBEDDING_DIMENSIONS, max_length=EMBEDDING_DIMENSIONS)
 
-
 class GeminiEmbeddingResponse(BaseModel):
     embedding: GeminiEmbedding
-
 
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/"
 _GEMINI_TIMEOUT = httpx.Timeout(20.0, connect=3.0)
 _GEMINI_LIMITS = httpx.Limits(max_keepalive_connections=10, max_connections=30)
 _shared_gemini_client: httpx.AsyncClient | None = None
 _shared_gemini_loop: asyncio.AbstractEventLoop | None = None
-
 
 def _get_shared_gemini_client() -> httpx.AsyncClient:
     global _shared_gemini_client, _shared_gemini_loop
@@ -91,7 +80,6 @@ def _get_shared_gemini_client() -> httpx.AsyncClient:
         _shared_gemini_loop = current_loop
     return _shared_gemini_client
 
-
 async def close_gemini_http_client() -> None:
     """Close pooled Gemini HTTP client on application shutdown."""
     global _shared_gemini_client, _shared_gemini_loop
@@ -100,7 +88,6 @@ async def close_gemini_http_client() -> None:
     _shared_gemini_loop = None
     if client is not None and not client.is_closed:
         await client.aclose()
-
 
 class GeminiGateway:
     """Backend-only Gemini REST adapter with pooled connections, retries, and circuit breaker."""
@@ -143,12 +130,11 @@ class GeminiGateway:
                     headers=req_headers,
                     json=body,
                 )
-                if response.status_code == 429 or response.status_code >= 500:
-                    if attempt == 0:
-                        retry_after = response.headers.get("Retry-After", "")
-                        delay = float(retry_after) if retry_after.isdecimal() else 0.5
-                        await asyncio.sleep(min(delay, 1.5))
-                        continue
+                if attempt == 0 and (response.status_code == 429 or response.status_code >= 500):
+                    retry_after = response.headers.get("Retry-After", "")
+                    delay = float(retry_after) if retry_after.isdecimal() else 0.5
+                    await asyncio.sleep(min(delay, 1.5))
+                    continue
                 response.raise_for_status()
                 type(self)._failures = 0
                 return response

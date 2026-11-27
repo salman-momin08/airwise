@@ -37,12 +37,10 @@ from app.schemas.admin import (
     UpsertSystemSettingRequest,
 )
 
-
 def _ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
-
 
 DEFAULT_SOURCE_CATALOG: tuple[dict[str, object], ...] = (
     {
@@ -70,7 +68,6 @@ DEFAULT_SOURCE_CATALOG: tuple[dict[str, object], ...] = (
         "priority_rank": 1,
     },
 )
-
 
 class AdminGovernanceService:
     """Backend-enforced administrative governance with append-only redacted audit logs."""
@@ -411,7 +408,7 @@ class AdminGovernanceService:
         p95_lat = 0.0
         if latencies:
             sorted_lat = sorted(latencies)
-            idx = min(len(sorted_lat) - 1, max(0, int(round(0.95 * (len(sorted_lat) - 1)))))
+            idx = min(len(sorted_lat) - 1, max(0, round(0.95 * (len(sorted_lat) - 1))))
             p95_lat = float(sorted_lat[idx])
 
         return AdminAIMonitoringSchema(

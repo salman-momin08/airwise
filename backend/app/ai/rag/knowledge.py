@@ -27,7 +27,6 @@ from app.schemas.assistant import EvidenceReference, StrictModel
 logger = structlog.get_logger(__name__)
 TRUSTED_HOSTS = frozenset({"www.who.int", "www.epa.gov", "cpcb.nic.in", "ncdc.mohfw.gov.in"})
 
-
 def trusted_source_url(value: str) -> str:
     parts = urlsplit(value)
     if (
@@ -41,7 +40,6 @@ def trusted_source_url(value: str) -> str:
     ):
         raise ValueError("Knowledge sources must be approved official HTTPS URLs.")
     return value
-
 
 class DocumentInput(StrictModel):
     title: str = Field(min_length=3, max_length=300)
@@ -65,7 +63,6 @@ class DocumentInput(StrictModel):
             raise ValueError("Review date cannot precede publication date.")
         return self
 
-
 def chunk_text(text: str, *, size: int = 500, overlap: int = 80) -> list[str]:
     words = text.split()
     return [
@@ -74,16 +71,13 @@ def chunk_text(text: str, *, size: int = 500, overlap: int = 80) -> list[str]:
         if start == 0 or start + overlap < len(words)
     ]
 
-
 def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
 
 @dataclass(frozen=True)
 class RetrievedEvidence:
     reference: EvidenceReference
     content: str
-
 
 class KnowledgeService:
     def __init__(self, session: AsyncSession, gateway: LLMGateway, embedding_model: str) -> None:

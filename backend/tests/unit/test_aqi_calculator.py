@@ -8,7 +8,6 @@ from app.services.air_quality.aqi_calculator import (
     calculate_aqi,
 )
 
-
 class TestAQICalculatorStandardsIsolation(unittest.TestCase):
     def test_india_naqi_requires_three_pollutants_including_pm(self) -> None:
         only_two = {
@@ -55,7 +54,6 @@ class TestAQICalculatorStandardsIsolation(unittest.TestCase):
         epa_res = calculate_aqi(AQIStandard.US_EPA, wrong_unit)
         self.assertEqual(epa_res.status, "unavailable")
         self.assertIsNone(epa_res.aqi)
-
 
 if __name__ == "__main__":
     unittest.main()

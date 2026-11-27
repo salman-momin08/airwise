@@ -32,10 +32,8 @@ GEOGRAPHY_POINT_VARIANT = Text().with_variant(
     "postgresql",
 )
 
-
 def utc_now() -> datetime:
     return datetime.now(tz=UTC)
-
 
 class AirQualitySource(Base):
     __tablename__ = "air_quality_sources"
@@ -48,7 +46,6 @@ class AirQualitySource(Base):
     refresh_interval_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=900)
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     priority_rank: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-
 
 class AirQualityStation(Base):
     __tablename__ = "air_quality_stations"
@@ -75,7 +72,6 @@ class AirQualityStation(Base):
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
     source_type: Mapped[str] = mapped_column(String(32), nullable=False, default="station")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-
 
 class AirQualityMeasurement(Base):
     """Immutable pollutant measurement row (monthly UTC range-partitioned on PostgreSQL)."""
@@ -113,7 +109,6 @@ class AirQualityMeasurement(Base):
     )
     quality_flag: Mapped[str] = mapped_column(String(32), nullable=False, default="verified")
 
-
 class AirQualityForecast(Base):
     __tablename__ = "air_quality_forecasts"
     __table_args__ = (Index("ix_aq_forecasts_city_forecast_for", "city", "forecast_for"),)
@@ -133,7 +128,6 @@ class AirQualityForecast(Base):
     pollutants: Mapped[dict[str, Any]] = mapped_column(JSON_VARIANT, nullable=False)
     confidence_level: Mapped[str] = mapped_column(String(32), nullable=False, default="medium")
     is_development_fixture: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-
 
 class WeatherObservation(Base):
     __tablename__ = "weather_observations"

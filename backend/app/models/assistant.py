@@ -13,7 +13,6 @@ from app.models.identity import JSON_VARIANT, utc_now
 
 EMBEDDING_DIMENSIONS = 768
 
-
 class KnowledgeDocument(Base):
     __tablename__ = "knowledge_documents"
 
@@ -30,7 +29,6 @@ class KnowledgeDocument(Base):
     content_hash: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
-
 class KnowledgeChunk(Base):
     __tablename__ = "knowledge_chunks"
     __table_args__ = (UniqueConstraint("document_id", "chunk_index"),)
@@ -45,7 +43,6 @@ class KnowledgeChunk(Base):
     )
     embedding_model_version: Mapped[str] = mapped_column(String(100))
 
-
 class KnowledgeIngestionJob(Base):
     __tablename__ = "knowledge_ingestion_jobs"
 
@@ -56,14 +53,12 @@ class KnowledgeIngestionJob(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-
 class ChatConversation(Base):
     __tablename__ = "chat_conversations"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
@@ -76,7 +71,6 @@ class ChatMessage(Base):
     content: Mapped[str] = mapped_column(Text)
     structured_response: Mapped[dict[str, Any] | None] = mapped_column(JSON_VARIANT, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-
 
 class AIGenerationMetadata(Base):
     __tablename__ = "ai_generation_metadata"

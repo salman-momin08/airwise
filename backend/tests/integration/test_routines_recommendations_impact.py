@@ -24,13 +24,11 @@ from app.schemas.recommendations import GenerateRecommendationsRequest
 from app.services.air_quality.aqi_calculator import AQIStandard
 from app.services.recommendations.recommendation_service import HybridRecommendationService
 
-
 def _csrf_headers(client: AsyncClient) -> dict[str, str]:
     return {
         "X-CSRF-Token": client.cookies.get("airwise_csrf", ""),
         "Origin": "http://localhost:3000",
     }
-
 
 async def _register_user(client: AsyncClient, email: str) -> str:
     res = await client.post(
@@ -44,7 +42,6 @@ async def _register_user(client: AsyncClient, email: str) -> str:
     )
     assert res.status_code == 201
     return str(res.json()["data"]["user_id"])
-
 
 class _NumericAttemptGateway:
     """Stub gateway verifying LLM cannot alter deterministic impact numbers."""
@@ -75,7 +72,6 @@ class _NumericAttemptGateway:
         self, text: str, *, task: Literal["RETRIEVAL_QUERY", "RETRIEVAL_DOCUMENT"]
     ) -> list[float]:
         return [1.0] + [0.0] * 767
-
 
 async def test_exposure_safety_overrides_transport_emissions_in_severe_smog(
     api_client: AsyncClient,
@@ -136,7 +132,6 @@ async def test_exposure_safety_overrides_transport_emissions_in_severe_smog(
     )
     assert blr_cycle.status_code == 200
     assert blr_cycle.json()["data"]["exposure_screening"]["recommended_for_current_aqi"] is True
-
 
 async def test_routine_planner_requires_explicit_confirmation_and_flags_unsafe_edits(
     api_client: AsyncClient,
@@ -209,7 +204,6 @@ async def test_routine_planner_requires_explicit_confirmation_and_flags_unsafe_e
             json={"status": "archived"},
         )
     ).status_code == 404
-
 
 async def test_hybrid_recommendations_enforce_immutable_numbers_and_all_five_categories(
     api_client: AsyncClient,
@@ -312,7 +306,6 @@ async def test_hybrid_recommendations_enforce_immutable_numbers_and_all_five_cat
         assert tx_good.is_ai_enriched is True
         assert tx_good.impact_estimate is not None
         assert tx_good.impact_estimate.estimated_difference == 1.4
-
 
 async def test_action_logging_summary_ai_tools_export_and_erasure(
     api_client: AsyncClient,

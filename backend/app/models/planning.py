@@ -23,7 +23,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.models.identity import JSON_VARIANT, StringListType, utc_now
 
-
 class EmissionFactor(Base):
     __tablename__ = "emission_factors"
 
@@ -38,7 +37,6 @@ class EmissionFactor(Base):
     source_reference: Mapped[str] = mapped_column(String(300), nullable=False)
     effective_year: Mapped[int] = mapped_column(Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-
 
 class UserAction(Base):
     __tablename__ = "user_actions"
@@ -63,7 +61,6 @@ class UserAction(Base):
     estimates: Mapped[list[ImpactEstimate]] = relationship(
         "ImpactEstimate", back_populates="user_action"
     )
-
 
 class ImpactEstimate(Base):
     __tablename__ = "impact_estimates"
@@ -99,7 +96,6 @@ class ImpactEstimate(Base):
         "UserAction", back_populates="estimates"
     )
 
-
 class DailyRoutine(Base):
     __tablename__ = "daily_routines"
     __table_args__ = (Index("ix_daily_routines_user_plan_date", "user_id", "plan_date"),)
@@ -134,7 +130,6 @@ class DailyRoutine(Base):
         order_by="RoutineActivity.slot_order",
     )
 
-
 class RoutineActivity(Base):
     __tablename__ = "routine_activities"
     __table_args__ = (Index("ix_routine_activities_routine_id", "routine_id"),)
@@ -159,7 +154,6 @@ class RoutineActivity(Base):
     confidence: Mapped[str] = mapped_column(String(16), nullable=False, default="medium")
 
     routine: Mapped[DailyRoutine] = relationship("DailyRoutine", back_populates="activities")
-
 
 class Recommendation(Base):
     __tablename__ = "recommendations"
@@ -193,7 +187,6 @@ class Recommendation(Base):
     feedback_entries: Mapped[list[RecommendationFeedback]] = relationship(
         "RecommendationFeedback", back_populates="recommendation"
     )
-
 
 class RecommendationFeedback(Base):
     __tablename__ = "recommendation_feedback"

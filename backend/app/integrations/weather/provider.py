@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import ClassVar, Protocol
 
 import httpx
 
@@ -17,13 +17,11 @@ from app.integrations.http_resilience import (
     fetch_json_with_resilience,
 )
 
-
 def evaluate_inversion_stagnation_risk(
     *, temperature_c: float, humidity_pct: float, wind_speed_mps: float
 ) -> bool:
     """Deterministic indicator for cool, humid, calm winter boundary-layer stagnation."""
     return wind_speed_mps < 2.2 and temperature_c <= 19.0 and humidity_pct >= 62.0
-
 
 @dataclass(frozen=True)
 class NormalizedWeatherPayload:
@@ -40,19 +38,17 @@ class NormalizedWeatherPayload:
     is_stale: bool
     is_development_fixture: bool
 
-
 class WeatherProviderAdapter(Protocol):
     provider_slug: str
 
     async def fetch_city_weather(self, city: str) -> NormalizedWeatherPayload: ...
-
 
 class DevelopmentFixtureWeatherAdapter:
     """Explicitly labeled development weather fixture (blocked in APP_ENV=production)."""
 
     provider_slug = "development_fixture"
 
-    FIXTURE_METEOROLOGY: dict[str, tuple[float, float, float, int]] = {
+    FIXTURE_METEOROLOGY: ClassVar[dict[str, tuple[float, float, float, int]]] = {
         "delhi": (15.4, 74.0, 1.3, 290),
         "gurugram": (16.1, 70.0, 1.5, 285),
         "noida": (15.8, 72.0, 1.4, 295),
@@ -92,7 +88,6 @@ class DevelopmentFixtureWeatherAdapter:
             is_stale=False,
             is_development_fixture=True,
         )
-
 
 class OpenWeatherCurrentAdapter:
     provider_slug = "openweather"
@@ -161,7 +156,6 @@ class OpenWeatherCurrentAdapter:
             is_development_fixture=False,
         )
 
-
 class OpenMeteoWeatherAdapter:
     """Keyless Open-Meteo adapter for atmospheric dispersion telemetry."""
 
@@ -213,7 +207,6 @@ class OpenMeteoWeatherAdapter:
             is_development_fixture=False,
         )
 
-
 class FailoverWeatherClient:
     def __init__(
         self,
@@ -257,7 +250,6 @@ class FailoverWeatherClient:
             code="WEATHER_PROVIDER_UNAVAILABLE",
             message="Current weather telemetry is temporarily unavailable.",
         )
-
 
 def resolve_weather_adapter(settings: Settings) -> FailoverWeatherClient:
     if settings.weather_provider == "fixture":

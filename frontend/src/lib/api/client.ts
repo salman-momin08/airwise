@@ -26,19 +26,44 @@ export class ApiClientError extends Error {
   }
 }
 
+const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function buildRequestHeaders(method: string, options: RequestInit): Headers {
+  const headers = new Headers(options.headers);
+  if (!headers.has("Content-Type") && options.body) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (MUTATION_METHODS.has(method)) {
+    const csrf = readCsrfCookie();
+    if (csrf) {
+      headers.set("X-CSRF-Token", csrf);
+    }
+  }
+  return headers;
+}
+
+async function parseApiClientError(response: Response): Promise<ApiClientError> {
+  let errorBody: ApiErrorEnvelope | null = null;
+  try {
+    errorBody = (await response.json()) as ApiErrorEnvelope;
+  } catch {
+    // Non-JSON upstream failure
+  }
+  const detail = errorBody?.error;
+  return new ApiClientError(
+    detail?.code ?? "HTTP_REQUEST_FAILED",
+    detail?.message ?? `Request failed with status ${response.status}`,
+    detail?.request_id ?? "unknown",
+    response.status,
+  );
+}
+
 export async function apiFetch(
   path: string,
   options: RequestInit = {},
 ): Promise<Response> {
   const method = (options.method ?? "GET").toUpperCase();
-  const headers = new Headers(options.headers);
-  if (!headers.has("Content-Type") && options.body) {
-    headers.set("Content-Type", "application/json");
-  }
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-    const csrf = readCsrfCookie();
-    if (csrf) headers.set("X-CSRF-Token", csrf);
-  }
+  const headers = buildRequestHeaders(method, options);
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -48,18 +73,7 @@ export async function apiFetch(
   });
 
   if (!response.ok) {
-    let errorBody: ApiErrorEnvelope | null = null;
-    try {
-      errorBody = (await response.json()) as ApiErrorEnvelope;
-    } catch {
-      // Non-JSON upstream failure
-    }
-    throw new ApiClientError(
-      errorBody?.error.code ?? "HTTP_REQUEST_FAILED",
-      errorBody?.error.message ?? `Request failed with status ${response.status}`,
-      errorBody?.error.request_id ?? "unknown",
-      response.status,
-    );
+    throw await parseApiClientError(response);
   }
 
   return response;

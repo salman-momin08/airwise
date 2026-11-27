@@ -47,7 +47,6 @@ Meta = Annotated[ResponseMeta, Depends(get_response_meta)]
 AdminPrincipal = Annotated[AuthenticatedPrincipal, Depends(require_admin_user)]
 ModeratorPrincipal = Annotated[AuthenticatedPrincipal, Depends(require_moderator_or_admin)]
 
-
 @router.get("/status", response_model=ApiResponse[dict[str, str]])
 async def get_admin_status(
     principal: AdminPrincipal,
@@ -57,7 +56,6 @@ async def get_admin_status(
         data={"admin_user_id": str(principal.user_id), "status": "authorized"},
         meta=meta,
     )
-
 
 @router.get("/overview", response_model=ApiResponse[AdminOverviewSchema])
 async def get_admin_overview(
@@ -70,7 +68,6 @@ async def get_admin_overview(
     overview = await service.get_overview()
     return ApiResponse(data=overview, meta=meta)
 
-
 @router.get("/users", response_model=ApiResponse[list[AdminUserItemSchema]])
 async def list_admin_users(
     _principal: AdminPrincipal,
@@ -82,7 +79,6 @@ async def list_admin_users(
     service = AdminGovernanceService(session=db, settings=settings)
     users = await service.list_users(limit=limit)
     return ApiResponse(data=users, meta=meta)
-
 
 @router.patch(
     "/users/{user_id}",
@@ -107,7 +103,6 @@ async def update_admin_user_governance(
     )
     return ApiResponse(data=updated, meta=meta)
 
-
 @router.get("/data-sources", response_model=ApiResponse[list[AdminDataSourceItemSchema]])
 async def list_admin_data_sources(
     _principal: AdminPrincipal,
@@ -118,7 +113,6 @@ async def list_admin_data_sources(
     service = AdminGovernanceService(session=db, settings=settings)
     sources = await service.list_data_sources()
     return ApiResponse(data=sources, meta=meta)
-
 
 @router.post(
     "/data-sources/seed-defaults",
@@ -137,7 +131,6 @@ async def seed_admin_default_data_sources(
         actor_user_id=principal.user_id, client_ip=get_client_ip(request)
     )
     return ApiResponse(data=sources, meta=meta)
-
 
 @router.patch(
     "/data-sources/{source_id}",
@@ -162,7 +155,6 @@ async def update_admin_data_source(
     )
     return ApiResponse(data=updated, meta=meta)
 
-
 @router.get("/knowledge-base", response_model=ApiResponse[AdminKnowledgeGovernanceSchema])
 async def get_admin_knowledge_governance(
     _principal: AdminPrincipal,
@@ -174,7 +166,6 @@ async def get_admin_knowledge_governance(
     governance = await service.get_knowledge_governance()
     return ApiResponse(data=governance, meta=meta)
 
-
 @router.get("/ai-monitoring", response_model=ApiResponse[AdminAIMonitoringSchema])
 async def get_admin_ai_monitoring(
     _principal: AdminPrincipal,
@@ -185,7 +176,6 @@ async def get_admin_ai_monitoring(
     service = AdminGovernanceService(session=db, settings=settings)
     telemetry = await service.get_ai_monitoring()
     return ApiResponse(data=telemetry, meta=meta)
-
 
 @router.get("/audit-logs", response_model=ApiResponse[list[AdminAuditLogItemSchema]])
 async def list_admin_audit_logs(
@@ -200,7 +190,6 @@ async def list_admin_audit_logs(
     logs = await service.list_audit_logs(action_prefix=action_prefix, limit=limit)
     return ApiResponse(data=logs, meta=meta)
 
-
 @router.get("/settings", response_model=ApiResponse[list[SystemSettingItemSchema]])
 async def list_admin_system_settings(
     _principal: AdminPrincipal,
@@ -211,7 +200,6 @@ async def list_admin_system_settings(
     service = AdminGovernanceService(session=db, settings=settings)
     items = await service.list_system_settings()
     return ApiResponse(data=items, meta=meta)
-
 
 @router.put(
     "/settings/{key}",
@@ -236,7 +224,6 @@ async def upsert_admin_system_setting(
     )
     return ApiResponse(data=item, meta=meta)
 
-
 @router.get(
     "/community/reports",
     response_model=ApiResponse[list[AbuseReportSchema]],
@@ -253,7 +240,6 @@ async def list_community_moderation_reports(
     service = CommunityService(session=db, settings=settings)
     reports = await service.list_moderation_reports(status=status)
     return ApiResponse(data=reports, meta=meta)
-
 
 @router.patch(
     "/community/reports/{report_id}",
@@ -277,7 +263,6 @@ async def resolve_community_moderation_report(
         client_ip=get_client_ip(request),
     )
     return ApiResponse(data=resolved, meta=meta)
-
 
 @router.patch(
     "/community/initiatives/{initiative_id}",

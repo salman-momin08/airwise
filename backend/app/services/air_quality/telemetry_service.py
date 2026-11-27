@@ -47,7 +47,6 @@ PRIORITY_INGESTION_CITIES: tuple[str, ...] = (
     "Kolkata",
 )
 
-
 def precaution_for_aqi(standard: AQIStandard, aqi: int | None) -> str:
     if aqi is None:
         return (
@@ -74,7 +73,6 @@ def precaution_for_aqi(standard: AQIStandard, aqi: int | None) -> str:
         )
     return "Air quality is suitable for normal outdoor activities."
 
-
 def calculate_standard_isolated_aqi(
     standard: AQIStandard,
     raw_measurements: dict[PollutantCode, tuple[float, str]],
@@ -86,7 +84,6 @@ def calculate_standard_isolated_aqi(
         if norm is not None:
             converted[code] = norm
     return calculate_aqi(standard=standard, measurements=converted)
-
 
 class AirQualityTelemetryService:
     """Service orchestrating standard-isolated AQI, caching, staleness, and stations."""

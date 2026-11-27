@@ -27,7 +27,6 @@ from app.services.location.location_service import LocationService, search_gazet
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
-
 @router.get("/search", response_model=ApiResponse[list[GazetteerLocationMatch]])
 async def search_cities(
     q: Annotated[str, Query(min_length=1, max_length=80)],
@@ -35,7 +34,6 @@ async def search_cities(
 ) -> ApiResponse[list[GazetteerLocationMatch]]:
     matches = search_gazetteer(q)
     return ApiResponse(data=matches, meta=meta)
-
 
 @router.get("", response_model=ApiResponse[list[SavedLocationData]])
 async def list_saved_locations(
@@ -47,7 +45,6 @@ async def list_saved_locations(
     service = LocationService(session=db, settings=settings)
     items = await service.list_locations(user_id=principal.user_id)
     return ApiResponse(data=items, meta=meta)
-
 
 @router.post(
     "",
@@ -71,7 +68,6 @@ async def create_saved_location(
     )
     return ApiResponse(data=created, meta=meta)
 
-
 @router.patch(
     "/{location_id}",
     response_model=ApiResponse[SavedLocationData],
@@ -94,7 +90,6 @@ async def update_saved_location(
         client_ip=get_client_ip(request),
     )
     return ApiResponse(data=updated, meta=meta)
-
 
 @router.delete(
     "/{location_id}",

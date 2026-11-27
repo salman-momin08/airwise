@@ -8,7 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 AdminAssignableRole = Literal["user", "moderator", "admin"]
 
-
 class AdminOverviewSchema(BaseModel):
     active_users_count: int
     enabled_data_sources_count: int
@@ -21,7 +20,6 @@ class AdminOverviewSchema(BaseModel):
     active_aqi_provider_mode: str
     active_llm_provider: str
 
-
 class AdminUserItemSchema(BaseModel):
     id: UUID
     email: str
@@ -31,13 +29,11 @@ class AdminUserItemSchema(BaseModel):
     is_email_verified: bool
     created_at: datetime
 
-
 class AdminUpdateUserRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     role: AdminAssignableRole | None = None
     is_active: bool | None = None
-
 
 class AdminDataSourceItemSchema(BaseModel):
     id: UUID
@@ -49,14 +45,12 @@ class AdminDataSourceItemSchema(BaseModel):
     is_enabled: bool
     priority_rank: int
 
-
 class AdminUpdateDataSourceRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     is_enabled: bool | None = None
     priority_rank: int | None = Field(default=None, ge=1, le=100)
     refresh_interval_seconds: int | None = Field(default=None, ge=60, le=86400)
-
 
 class AdminKnowledgeDocumentItemSchema(BaseModel):
     id: UUID
@@ -70,7 +64,6 @@ class AdminKnowledgeDocumentItemSchema(BaseModel):
     chunks_count: int
     is_review_overdue: bool
 
-
 class AdminIngestionJobItemSchema(BaseModel):
     id: UUID
     source_url: str
@@ -79,11 +72,9 @@ class AdminIngestionJobItemSchema(BaseModel):
     created_at: datetime
     completed_at: datetime | None = None
 
-
 class AdminKnowledgeGovernanceSchema(BaseModel):
     documents: list[AdminKnowledgeDocumentItemSchema]
     recent_jobs: list[AdminIngestionJobItemSchema]
-
 
 class AdminAIMonitoringSchema(BaseModel):
     total_generations: int
@@ -98,7 +89,6 @@ class AdminAIMonitoringSchema(BaseModel):
     runtime_aqi_cache_hits: int
     runtime_aqi_cache_misses: int
 
-
 class AdminAuditLogItemSchema(BaseModel):
     id: UUID
     actor_user_id: str | None = None
@@ -108,13 +98,11 @@ class AdminAuditLogItemSchema(BaseModel):
     metadata_redacted: dict[str, Any]
     created_at: datetime
 
-
 class SystemSettingItemSchema(BaseModel):
     key: str
     value: dict[str, Any]
     updated_by: str | None = None
     updated_at: datetime
-
 
 class UpsertSystemSettingRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")

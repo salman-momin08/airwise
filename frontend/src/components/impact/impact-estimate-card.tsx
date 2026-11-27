@@ -12,12 +12,65 @@ interface ImpactEstimateCardProps {
   heading?: string;
 }
 
+function ExposureScreeningNotice({
+  screening,
+}: {
+  screening: NonNullable<ImpactEstimate["exposure_screening"]>;
+}) {
+  return (
+    <>
+      {!screening.recommended_for_current_aqi && screening.exposure_warning ? (
+        <div
+          role="alert"
+          className="space-y-2 rounded-lg border border-red-600/80 bg-red-100/90 p-4 text-sm text-red-950 dark:bg-red-950/50 dark:text-red-100"
+        >
+          <p className="font-semibold">{screening.exposure_warning}</p>
+          {screening.safer_commute_fallback ? (
+            <p>
+              <strong>Safer Alternative:</strong> {screening.safer_commute_fallback}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {screening.recommended_for_current_aqi && screening.exposure_warning ? (
+        <div
+          role="status"
+          className="rounded-lg border border-amber-500/70 bg-amber-100/80 px-4 py-2.5 text-xs font-medium text-amber-950 dark:bg-amber-900/30 dark:text-amber-100"
+        >
+          {screening.exposure_warning}
+        </div>
+      ) : null}
+
+      {screening.evaluated && screening.standard ? (
+        <div className="flex flex-wrap items-center gap-3 text-xs text-text-secondary">
+          <span>Exposure Screening Context ({screening.city}):</span>
+          <AQIBadge
+            standard={screening.standard}
+            aqi={screening.aqi}
+            category={screening.category}
+          />
+          {screening.is_development_fixture ? (
+            <span className="font-medium text-amber-800 dark:text-amber-200">
+              (Development Fixture Telemetry)
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export function ImpactEstimateCard({
   estimate,
   heading = "Deterministic Impact Estimate",
 }: ImpactEstimateCardProps) {
   const unitLabel = UNIT_LABELS[estimate.unit] ?? estimate.unit;
   const screening = estimate.exposure_screening;
+  const formattedDifference =
+    estimate.estimated_difference > 0
+      ? `+${estimate.estimated_difference}`
+      : `${estimate.estimated_difference}`;
 
   return (
     <section
@@ -36,44 +89,7 @@ export function ImpactEstimateCard({
         </div>
       </div>
 
-      {screening && !screening.recommended_for_current_aqi && screening.exposure_warning ? (
-        <div
-          role="alert"
-          className="space-y-2 rounded-lg border border-red-600/80 bg-red-100/90 p-4 text-sm text-red-950 dark:bg-red-950/50 dark:text-red-100"
-        >
-          <p className="font-semibold">{screening.exposure_warning}</p>
-          {screening.safer_commute_fallback ? (
-            <p>
-              <strong>Safer Alternative:</strong> {screening.safer_commute_fallback}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {screening && screening.recommended_for_current_aqi && screening.exposure_warning ? (
-        <div
-          role="status"
-          className="rounded-lg border border-amber-500/70 bg-amber-100/80 px-4 py-2.5 text-xs font-medium text-amber-950 dark:bg-amber-900/30 dark:text-amber-100"
-        >
-          {screening.exposure_warning}
-        </div>
-      ) : null}
-
-      {screening?.evaluated && screening.standard ? (
-        <div className="flex flex-wrap items-center gap-3 text-xs text-text-secondary">
-          <span>Exposure Screening Context ({screening.city}):</span>
-          <AQIBadge
-            standard={screening.standard}
-            aqi={screening.aqi}
-            category={screening.category}
-          />
-          {screening.is_development_fixture ? (
-            <span className="font-medium text-amber-800 dark:text-amber-200">
-              (Development Fixture Telemetry)
-            </span>
-          ) : null}
-        </div>
-      ) : null}
+      {screening ? <ExposureScreeningNotice screening={screening} /> : null}
 
       <dl className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-border p-3">
@@ -91,8 +107,7 @@ export function ImpactEstimateCard({
         <div className="rounded-lg border border-brand-primary/50 bg-brand-accent/30 p-3">
           <dt className="text-xs text-text-secondary">Estimated Difference</dt>
           <dd className="mt-1 text-lg font-bold text-text-primary">
-            {estimate.estimated_difference > 0 ? `+${estimate.estimated_difference}` : estimate.estimated_difference}{" "}
-            <span className="text-xs font-normal">{unitLabel}</span>
+            {formattedDifference} <span className="text-xs font-normal">{unitLabel}</span>
           </dd>
         </div>
       </dl>

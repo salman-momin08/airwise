@@ -43,7 +43,6 @@ ACTIVE_OUTDOOR_MODES: frozenset[str] = frozenset(
     {"walk", "bicycle", "two_wheeler_petrol", "two_wheeler_ev"}
 )
 
-
 def serialize_impact_record(
     record: ImpactEstimate,
     *,
@@ -75,7 +74,6 @@ def serialize_impact_record(
         exposure_screening=screening,
     )
 
-
 def serialize_impact_result(
     result: ImpactResult,
     *,
@@ -98,7 +96,6 @@ def serialize_impact_result(
         calculated_at=result.calculated_at,
         exposure_screening=screening,
     )
-
 
 class ImpactEngineService:
     """Coordinates deterministic impact calculators, exposure screening, and action logs."""

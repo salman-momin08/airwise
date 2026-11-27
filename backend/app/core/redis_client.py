@@ -6,7 +6,6 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
 from redis.retry import Retry
 
-
 def create_async_redis_client(url: str, *, decode_responses: bool = True) -> Redis:
     """Create a serverless-resilient async Redis client with idle health checks and retry."""
     client: Redis = Redis.from_url(

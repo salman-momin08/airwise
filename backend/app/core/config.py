@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+_REPO_ROOT_DIR = _BACKEND_DIR.parent
 
 VALID_REDIS_SCHEMES = ("redis://", "rediss://", "unix://")
 _DISABLED_REDIS_SENTINELS = frozenset({"", "none", "null", "false", "disabled"})
@@ -17,8 +22,18 @@ def _strip_wrapping_quotes(value: str) -> str:
     return trimmed
 
 
+def _upgrade_managed_tls_scheme(url: str) -> str:
+    """Upstash endpoints require TLS (`rediss://`); plain `redis://` drops immediately."""
+    if not url.startswith("redis://"):
+        return url
+    hostname = (urlsplit(url).hostname or "").lower()
+    if hostname.endswith(".upstash.io"):
+        return "rediss://" + url.removeprefix("redis://")
+    return url
+
+
 def normalize_redis_url(raw: str) -> str:
-    """Normalize common Vercel/Upstash paste variants (quotes, whitespace, redis-cli)."""
+    """Normalize common Vercel/Upstash paste variants (quotes, whitespace, redis-cli, TLS)."""
     cleaned = _strip_wrapping_quotes(raw)
     if cleaned.lower() in _DISABLED_REDIS_SENTINELS:
         return ""
@@ -37,8 +52,8 @@ def normalize_redis_url(raw: str) -> str:
         if extracted:
             if use_tls and extracted.startswith("redis://"):
                 return "rediss://" + extracted.removeprefix("redis://")
-            return extracted
-    return cleaned
+            return _upgrade_managed_tls_scheme(extracted)
+    return _upgrade_managed_tls_scheme(cleaned)
 
 
 def is_valid_redis_url(url: str) -> bool:
@@ -47,7 +62,7 @@ def is_valid_redis_url(url: str) -> bool:
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(_REPO_ROOT_DIR / ".env", _BACKEND_DIR / ".env", ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",

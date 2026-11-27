@@ -55,6 +55,12 @@ def test_redis_url_normalization_handles_quotes_cli_and_disabled_sentinels() -> 
     quoted = Settings(redis_url=' "rediss://default:pw@example.upstash.io:6379" \n')
     assert quoted.redis_url == "rediss://default:pw@example.upstash.io:6379"
 
+    plain_upstash = Settings(redis_url="redis://default:pw@example.upstash.io:6379")
+    assert plain_upstash.redis_url == "rediss://default:pw@example.upstash.io:6379"
+
+    local_redis = Settings(redis_url="redis://localhost:6379/0")
+    assert local_redis.redis_url == "redis://localhost:6379/0"
+
     cli_tls = Settings(redis_url="redis-cli --tls -u redis://default:pw@example.upstash.io:6379")
     assert cli_tls.redis_url == "rediss://default:pw@example.upstash.io:6379"
 

@@ -6,12 +6,12 @@ from typing import cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import structlog
-from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.exceptions import ExternalProviderUnavailableError, ResourceNotFoundError
+from app.core.redis_client import create_async_redis_client
 from app.integrations.email.provider import (
     EmailProvider,
     TransactionalEmailMessage,
@@ -93,15 +93,13 @@ class AlertDeduplicator:
 
         if settings.app_env != "test" and settings.redis_url:
             try:
-                async with Redis.from_url(
+                async with create_async_redis_client(
                     settings.redis_url,
                     decode_responses=True,
-                    socket_connect_timeout=1.5,
-                    socket_timeout=1.5,
                 ) as redis:
                     acquired = await redis.set(dedup_key, "1", ex=max(ttl_seconds, 60), nx=True)
                     return bool(acquired)
-            except (RedisError, ValueError) as exc:
+            except (RedisError, ValueError, RuntimeError) as exc:
                 logger.warning("alert_dedup_redis_fallback", error_type=type(exc).__name__)
 
         if dedup_key in self._local_keys:

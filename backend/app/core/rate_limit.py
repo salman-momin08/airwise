@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 from collections import deque
 
@@ -9,6 +10,7 @@ from redis.exceptions import RedisError
 
 from app.core.config import get_settings
 from app.core.exceptions import RateLimitExceededError
+from app.core.redis_client import create_async_redis_client
 
 logger = structlog.get_logger(__name__)
 
@@ -20,6 +22,7 @@ class SlidingWindowRateLimiter:
         self._memory_windows: dict[str, deque[float]] = {}
         self._redis_client: Redis | None = None
         self._redis_url_cached: str | None = None
+        self._redis_loop: asyncio.AbstractEventLoop | None = None
         self._redis_backoff_until: float = 0.0
 
     def reset_local_state(self) -> None:
@@ -27,6 +30,7 @@ class SlidingWindowRateLimiter:
         self._redis_backoff_until = 0.0
         self._redis_client = None
         self._redis_url_cached = None
+        self._redis_loop = None
 
     def _get_redis(self) -> Redis | None:
         settings = get_settings()
@@ -36,18 +40,23 @@ class SlidingWindowRateLimiter:
             or time.monotonic() < self._redis_backoff_until
         ):
             return None
-        if self._redis_client is None or self._redis_url_cached != settings.redis_url:
+        current_loop = asyncio.get_running_loop()
+        if (
+            self._redis_client is None
+            or self._redis_url_cached != settings.redis_url
+            or self._redis_loop is not current_loop
+        ):
             try:
-                self._redis_client = Redis.from_url(
+                self._redis_client = create_async_redis_client(
                     settings.redis_url,
                     decode_responses=True,
-                    socket_connect_timeout=1.5,
-                    socket_timeout=1.5,
                 )
                 self._redis_url_cached = settings.redis_url
+                self._redis_loop = current_loop
             except (RedisError, ValueError) as exc:
                 self._redis_client = None
                 self._redis_url_cached = None
+                self._redis_loop = None
                 self._redis_backoff_until = time.monotonic() + 30.0
                 logger.warning(
                     "rate_limit_redis_init_fallback",
@@ -76,7 +85,9 @@ class SlidingWindowRateLimiter:
                 return
             except RateLimitExceededError:
                 raise
-            except RedisError as exc:
+            except (RedisError, RuntimeError) as exc:
+                self._redis_client = None
+                self._redis_loop = None
                 self._redis_backoff_until = time.monotonic() + 30.0
                 logger.warning("rate_limit_redis_fallback", scope=scope, reason=str(exc))
 

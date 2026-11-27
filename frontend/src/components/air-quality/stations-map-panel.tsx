@@ -31,7 +31,7 @@ export function StationsMapPanel({
       .then((maplibre) => {
         if (cancelled || !mapContainerRef.current) return;
         try {
-          const map = new maplibre.default.Map({
+          const map = new maplibre.Map({
             container: mapContainerRef.current,
             style: {
               version: 8,
@@ -58,17 +58,17 @@ export function StationsMapPanel({
           for (const st of stations) {
             const el = document.createElement("div");
             el.className =
-              "rounded-full border-2 border-white bg-brand-primary px-2 py-0.5 text-xs font-bold text-white shadow";
+              "rounded-full border-2 border-white bg-brand-primary px-2 py-0.5 text-xs font-bold text-white dark:text-background shadow";
             el.textContent = st.aqi !== null ? `${st.aqi}` : "N/A";
             el.setAttribute(
               "aria-label",
               `${st.name}: AQI ${st.aqi ?? "Unavailable"} (${st.category ?? "Unavailable"})`,
             );
 
-            new maplibre.default.Marker({ element: el })
+            new maplibre.Marker({ element: el })
               .setLngLat([st.longitude, st.latitude])
               .setPopup(
-                new maplibre.default.Popup({ offset: 16 }).setText(
+                new maplibre.Popup({ offset: 16 }).setText(
                   `${st.name} — AQI ${st.aqi ?? "Unavailable"} (${st.category ?? "Unavailable"})`,
                 ),
               )

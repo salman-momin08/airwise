@@ -80,7 +80,7 @@ export function ForecastStrip({ forecast, isLoading, isError }: ForecastStripPro
             </p>
 
             {pt.safer_outdoor_window ? (
-              <p className="mt-1.5 text-xs font-semibold text-brand-secondary">
+              <p className="mt-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
                 ✓ Relatively lower exposure window
               </p>
             ) : null}

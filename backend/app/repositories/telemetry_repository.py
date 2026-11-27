@@ -202,6 +202,38 @@ class TelemetryRepository:
             .limit(100)
         )
         rows = (await self._session.execute(stmt)).all()
+        if not rows:
+            return []
+
+        station_ids = [station.id for station, _ in rows]
+        latest_subq = (
+            select(
+                AirQualityMeasurement.station_id.label("station_id"),
+                func.max(AirQualityMeasurement.measured_at).label("latest_measured_at"),
+            )
+            .where(AirQualityMeasurement.station_id.in_(station_ids))
+            .group_by(AirQualityMeasurement.station_id)
+            .subquery()
+        )
+        m_stmt = select(AirQualityMeasurement).join(
+            latest_subq,
+            (AirQualityMeasurement.station_id == latest_subq.c.station_id)
+            & (AirQualityMeasurement.measured_at == latest_subq.c.latest_measured_at),
+        )
+        latest_measurements = (await self._session.execute(m_stmt)).scalars().all()
+
+        latest_ts_by_station: dict[uuid.UUID, datetime] = {}
+        measurements_by_station: dict[uuid.UUID, dict[PollutantCode, tuple[float, str]]] = {}
+        fixture_stations: set[uuid.UUID] = set()
+        for m_row in latest_measurements:
+            latest_ts_by_station[m_row.station_id] = m_row.measured_at
+            bucket = measurements_by_station.setdefault(m_row.station_id, {})
+            if m_row.pollutant in PollutantCode._value2member_map_:
+                p_code = PollutantCode(m_row.pollutant)
+                bucket[p_code] = (float(m_row.concentration), m_row.unit)
+            if m_row.quality_flag == "development_fixture":
+                fixture_stations.add(m_row.station_id)
+
         results: list[
             tuple[
                 AirQualityStation,
@@ -211,25 +243,18 @@ class TelemetryRepository:
                 bool,
             ]
         ] = []
-
         for station, provider_slug in rows:
-            latest_ts_stmt = select(func.max(AirQualityMeasurement.measured_at)).where(
-                AirQualityMeasurement.station_id == station.id
+            is_fixture = (
+                provider_slug == "development_fixture" or station.id in fixture_stations
             )
-            latest_ts = (await self._session.execute(latest_ts_stmt)).scalar_one_or_none()
-            measurements: dict[PollutantCode, tuple[float, str]] = {}
-            is_fixture = provider_slug == "development_fixture"
-            if latest_ts is not None:
-                m_stmt = select(AirQualityMeasurement).where(
-                    AirQualityMeasurement.station_id == station.id,
-                    AirQualityMeasurement.measured_at == latest_ts,
+            results.append(
+                (
+                    station,
+                    provider_slug,
+                    measurements_by_station.get(station.id, {}),
+                    latest_ts_by_station.get(station.id),
+                    is_fixture,
                 )
-                for m_row in (await self._session.execute(m_stmt)).scalars().all():
-                    if m_row.pollutant in PollutantCode._value2member_map_:
-                        p_code = PollutantCode(m_row.pollutant)
-                        measurements[p_code] = (float(m_row.concentration), m_row.unit)
-                    if m_row.quality_flag == "development_fixture":
-                        is_fixture = True
-            results.append((station, provider_slug, measurements, latest_ts, is_fixture))
+            )
 
         return results

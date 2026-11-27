@@ -46,12 +46,12 @@ export function PasswordRecoveryPanel() {
       <section className="mt-6 max-w-md rounded-card border border-border bg-surface p-6 shadow-sm">
         {resetSuccess ? (
           <div role="status" className="space-y-3 text-sm text-text-primary">
-            <p className="font-semibold text-brand-secondary">
+            <p className="font-semibold text-emerald-800 dark:text-emerald-300">
               Password updated and previous sessions revoked.
             </p>
             <Link
               href="/login"
-              className="inline-block rounded-lg bg-brand-primary px-4 py-2 font-medium text-white"
+              className="inline-block rounded-lg bg-brand-primary px-4 py-2 font-medium text-white dark:text-background"
             >
               Sign in with new password
             </Link>
@@ -108,7 +108,7 @@ export function PasswordRecoveryPanel() {
             <button
               type="submit"
               disabled={resetMutation.isPending}
-              className="w-full rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+              className="w-full rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 dark:text-background"
             >
               {resetMutation.isPending ? "Updating password…" : "Update password"}
             </button>
@@ -168,7 +168,7 @@ export function PasswordRecoveryPanel() {
         <button
           type="submit"
           disabled={forgotMutation.isPending}
-          className="w-full rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+          className="w-full rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 dark:text-background"
         >
           {forgotMutation.isPending ? "Sending link…" : "Send single-use reset link"}
         </button>

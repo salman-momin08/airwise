@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.gateway.gemini import close_gemini_http_client
 from app.api.v1.router import api_v1_router
 from app.core.config import get_settings
 from app.core.exceptions import AirWiseError, AuthorizationError
@@ -22,6 +23,7 @@ from app.core.logging import configure_logging
 from app.core.middleware import CorrelationAndSecurityHeadersMiddleware
 from app.core.telemetry import telemetry_registry
 from app.db.session import get_db_session
+from app.integrations.http_resilience import close_shared_http_clients
 from app.schemas.common import ErrorDetail, ErrorResponse, HealthStatus
 
 
@@ -29,7 +31,11 @@ from app.schemas.common import ErrorDetail, ErrorResponse, HealthStatus
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(debug=settings.debug)
-    yield
+    try:
+        yield
+    finally:
+        await close_shared_http_clients()
+        await close_gemini_http_client()
 
 
 def create_app() -> FastAPI:

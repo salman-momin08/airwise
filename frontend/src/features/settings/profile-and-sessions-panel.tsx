@@ -109,7 +109,7 @@ export function ProfileAndSessionsPanel() {
             <button
               type="button"
               onClick={() => meQuery.refetch()}
-              className="rounded-lg bg-brand-primary px-3 py-1.5 font-medium text-white"
+              className="rounded-lg bg-brand-primary px-3 py-1.5 font-medium text-white dark:text-background"
             >
               Retry
             </button>
@@ -222,7 +222,7 @@ export function ProfileAndSessionsPanel() {
             <button
               type="submit"
               disabled={updateMutation.isPending}
-              className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:text-background"
             >
               {updateMutation.isPending ? "Saving…" : "Save profile changes"}
             </button>
@@ -261,7 +261,7 @@ export function ProfileAndSessionsPanel() {
                   <p className="font-medium text-text-primary">
                     {sess.user_agent ?? "Browser session"}{" "}
                     {sess.is_current ? (
-                      <span className="ml-2 rounded bg-brand-accent px-2 py-0.5 text-xs font-semibold text-brand-primary">
+                      <span className="ml-2 rounded border border-brand-primary/50 bg-brand-accent px-2 py-0.5 text-xs font-semibold text-text-primary">
                         Current device
                       </span>
                     ) : null}

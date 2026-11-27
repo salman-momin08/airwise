@@ -90,7 +90,7 @@ export function LocationStandardToolbar({
             onClick={() => onStandardChange("india_naqi")}
             className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
               standard === "india_naqi"
-                ? "bg-brand-primary text-white"
+                ? "bg-brand-primary text-white dark:text-background"
                 : "border border-border bg-background text-text-primary hover:bg-brand-accent/30"
             }`}
           >
@@ -102,7 +102,7 @@ export function LocationStandardToolbar({
             onClick={() => onStandardChange("us_epa")}
             className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
               standard === "us_epa"
-                ? "bg-brand-primary text-white"
+                ? "bg-brand-primary text-white dark:text-background"
                 : "border border-border bg-background text-text-primary hover:bg-brand-accent/30"
             }`}
           >

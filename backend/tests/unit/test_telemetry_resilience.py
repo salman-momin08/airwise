@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from typing import Literal
+from datetime import UTC, datetime, timedelta
+from typing import Any, Literal
 
 import httpx
 import pytest
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from app.core.config import Settings
@@ -24,6 +25,7 @@ from app.integrations.http_resilience import (
     assert_allowed_https_url,
     fetch_json_with_resilience,
 )
+from app.repositories.telemetry_repository import TelemetryRepository
 from app.services.air_quality.aqi_calculator import (
     AQIStandard,
     PollutantCode,
@@ -283,4 +285,73 @@ async def test_openaq_does_not_leak_key_to_openweather_and_uses_open_meteo_fallb
             transport=httpx.MockTransport(unauthorized),
         )
     assert calls == 1
+
+
+async def test_list_stations_in_bbox_batches_queries_without_n_plus_one(
+    db_engine: AsyncEngine,
+) -> None:
+    now = datetime.now(tz=UTC)
+    older = now - timedelta(hours=2)
+    session_factory = async_sessionmaker(bind=db_engine, expire_on_commit=False)
+
+    async with session_factory() as session:
+        repo = TelemetryRepository(session)
+        for idx in range(5):
+            for ts, pm25_val in ((older, 90.0 + idx), (now, 180.0 + idx)):
+                await repo.upsert_station_with_measurements(
+                    NormalizedStationTelemetry(
+                        external_station_id=f"delhi-st-{idx}",
+                        name=f"Delhi Station {idx}",
+                        city="Delhi",
+                        state_region="NCT of Delhi",
+                        country_code="IN",
+                        latitude=28.60 + idx * 0.01,
+                        longitude=77.20 + idx * 0.01,
+                        provider="openaq",
+                        source_type="station",
+                        measured_at=ts,
+                        is_stale=False,
+                        is_development_fixture=False,
+                        measurements={
+                            PollutantCode.PM25: (pm25_val, "ug/m3"),
+                            PollutantCode.PM10: (260.0 + idx, "ug/m3"),
+                            PollutantCode.NO2: (55.0, "ug/m3"),
+                        },
+                    )
+                )
+        await session.commit()
+
+    select_statements: list[str] = []
+
+    def _count_selects(
+        _conn: Any,
+        _cursor: Any,
+        statement: str,
+        _parameters: Any,
+        _context: Any,
+        _executemany: Any,
+    ) -> None:
+        if statement.lstrip().upper().startswith("SELECT"):
+            select_statements.append(statement)
+
+    event.listen(db_engine.sync_engine, "before_cursor_execute", _count_selects)
+    try:
+        async with session_factory() as read_session:
+            read_repo = TelemetryRepository(read_session)
+            stations = await read_repo.list_stations_in_bbox(
+                min_lon=77.0,
+                min_lat=28.5,
+                max_lon=77.5,
+                max_lat=28.8,
+            )
+    finally:
+        event.remove(db_engine.sync_engine, "before_cursor_execute", _count_selects)
+
+    assert len(stations) == 5
+    # Constant 2 SELECT queries regardless of station count (1 stations query + 1 batched join)
+    assert len(select_statements) == 2
+    by_ext_id = {st.external_station_id: meas for st, _, meas, _, _ in stations}
+    assert by_ext_id["delhi-st-0"][PollutantCode.PM25] == (180.0, "ug/m3")
+    assert by_ext_id["delhi-st-4"][PollutantCode.PM25] == (184.0, "ug/m3")
+
 

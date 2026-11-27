@@ -288,6 +288,50 @@ class AlertsCommunityRepository:
         )
         return int(count or 0)
 
+    async def count_members_batch(
+        self, community_ids: set[uuid.UUID]
+    ) -> dict[uuid.UUID, int]:
+        if not community_ids:
+            return {}
+        rows = (
+            await self._session.execute(
+                select(CommunityMember.community_id, func.count())
+                .where(CommunityMember.community_id.in_(community_ids))
+                .group_by(CommunityMember.community_id)
+            )
+        ).all()
+        return {comm_id: int(cnt or 0) for comm_id, cnt in rows}
+
+    async def count_active_initiatives_batch(
+        self, community_ids: set[uuid.UUID]
+    ) -> dict[uuid.UUID, int]:
+        if not community_ids:
+            return {}
+        rows = (
+            await self._session.execute(
+                select(CommunityInitiative.community_id, func.count())
+                .where(
+                    CommunityInitiative.community_id.in_(community_ids),
+                    CommunityInitiative.moderation_status == "active",
+                )
+                .group_by(CommunityInitiative.community_id)
+            )
+        ).all()
+        return {comm_id: int(cnt or 0) for comm_id, cnt in rows}
+
+    async def get_memberships_batch(
+        self, *, community_ids: set[uuid.UUID], user_id: uuid.UUID
+    ) -> dict[uuid.UUID, CommunityMember]:
+        if not community_ids:
+            return {}
+        rows = await self._session.scalars(
+            select(CommunityMember).where(
+                CommunityMember.community_id.in_(community_ids),
+                CommunityMember.user_id == user_id,
+            )
+        )
+        return {member.community_id: member for member in rows.all()}
+
     async def list_consented_member_names(self, community_id: uuid.UUID) -> list[str]:
         """Strictly returns display_name ONLY for members with public_display_consent=True."""
         stmt = (
@@ -403,6 +447,35 @@ class AlertsCommunityRepository:
             )
         ).one()
         return int(row[0] or 0), int(row[1] or 0), round(float(row[2] or 0.0), 4)
+
+    async def aggregate_initiatives_metrics_batch(
+        self, initiative_ids: set[uuid.UUID]
+    ) -> dict[uuid.UUID, tuple[int, int, float]]:
+        if not initiative_ids:
+            return {}
+        rows = (
+            await self._session.execute(
+                select(
+                    CommunityParticipation.initiative_id,
+                    func.count(CommunityParticipation.id),
+                    func.coalesce(
+                        func.sum(CommunityParticipation.self_reported_actions_count), 0
+                    ),
+                    func.coalesce(
+                        func.sum(CommunityParticipation.estimated_avoided_co2e_kg), 0.0
+                    ),
+                )
+                .where(
+                    CommunityParticipation.initiative_id.in_(initiative_ids),
+                    CommunityParticipation.moderation_status == "approved",
+                )
+                .group_by(CommunityParticipation.initiative_id)
+            )
+        ).all()
+        return {
+            init_id: (int(entries or 0), int(actions or 0), round(float(co2e or 0.0), 4))
+            for init_id, entries, actions, co2e in rows
+        }
 
     async def aggregate_community_metrics(
         self, community_id: uuid.UUID

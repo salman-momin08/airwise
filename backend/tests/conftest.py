@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app import models as _models  # noqa: F401
+from app.ai.gateway.budget import TokenBudget
 from app.core.config import Settings, get_settings
 from app.core.rate_limit import rate_limiter
 from app.db.base import Base
@@ -53,6 +54,7 @@ async def api_client(db_engine: AsyncEngine) -> AsyncIterator[AsyncClient]:
     rate_limiter.reset_local_state()
     telemetry_cache.clear_local()
     alert_deduplicator.reset_local_state()
+    TokenBudget.reset_local_state()
     reset_air_quality_circuit_breakers()
     ConsoleEmailProvider.last_outbox.clear()
 

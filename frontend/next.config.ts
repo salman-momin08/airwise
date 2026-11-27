@@ -8,6 +8,26 @@ const nextConfig: NextConfig = {
     process.env.VERCEL === "1" ? path.join(__dirname, "..") : path.resolve(__dirname),
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {
+    optimizePackageImports: ["recharts", "lucide-react"],
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "geolocation=(self), camera=(), microphone=(), payment=()",
+          },
+          { key: "X-DNS-Prefetch-Control", value: "on" },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     if (process.env.VERCEL === "1") {
       return [];

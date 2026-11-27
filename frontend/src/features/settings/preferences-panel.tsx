@@ -289,7 +289,7 @@ export function PreferencesPanel() {
         <button
           type="submit"
           disabled={saveMutation.isPending}
-          className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+          className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 dark:text-background"
         >
           {saveMutation.isPending ? "Saving preferences…" : "Save preferences"}
         </button>

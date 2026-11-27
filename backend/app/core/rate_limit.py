@@ -13,6 +13,7 @@ from app.core.exceptions import RateLimitExceededError
 from app.core.redis_client import create_async_redis_client
 
 logger = structlog.get_logger(__name__)
+MAX_LOCAL_RATE_WINDOWS = 2048
 
 
 class SlidingWindowRateLimiter:
@@ -67,12 +68,12 @@ class SlidingWindowRateLimiter:
 
     async def check(self, scope: str, identifier: str, limit: int, window_seconds: int) -> None:
         now = time.time()
+        cutoff = now - window_seconds
         key = f"rl:{scope}:{identifier}"
         redis = self._get_redis()
         if redis is not None:
             try:
                 member = f"{now:.6f}"
-                cutoff = now - window_seconds
                 pipe = redis.pipeline()
                 pipe.zremrangebyscore(key, "-inf", cutoff)
                 pipe.zcard(key)
@@ -91,8 +92,16 @@ class SlidingWindowRateLimiter:
                 self._redis_backoff_until = time.monotonic() + 30.0
                 logger.warning("rate_limit_redis_fallback", scope=scope, reason=str(exc))
 
+        if key not in self._memory_windows and len(self._memory_windows) >= MAX_LOCAL_RATE_WINDOWS:
+            empty_keys = [
+                k for k, q in self._memory_windows.items() if not q or q[-1] <= cutoff
+            ]
+            for k in empty_keys:
+                self._memory_windows.pop(k, None)
+            if len(self._memory_windows) >= MAX_LOCAL_RATE_WINDOWS:
+                oldest_key = next(iter(self._memory_windows))
+                self._memory_windows.pop(oldest_key, None)
         bucket = self._memory_windows.setdefault(key, deque())
-        cutoff = now - window_seconds
         while bucket and bucket[0] <= cutoff:
             bucket.popleft()
         if len(bucket) >= limit:

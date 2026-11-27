@@ -80,8 +80,11 @@ class Settings(BaseSettings):
     app_env: Literal["development", "test", "staging", "production"] = "development"
     debug: bool = False
 
-    database_url: str = "postgresql+asyncpg://airwise:airwise_dev_only@localhost:5432/airwise"
-    redis_url: str = "redis://localhost:6379/0"
+    database_url: str = Field(
+        default="postgresql+asyncpg://airwise:airwise_dev_only@localhost:5432/airwise",
+        repr=False,
+    )
+    redis_url: str = Field(default="redis://localhost:6379/0", repr=False)
 
     @field_validator("redis_url", mode="before")
     @classmethod
@@ -93,6 +96,7 @@ class Settings(BaseSettings):
     auth_secret_key: str = Field(
         default="dev-only-replace-with-cryptographic-random-secret-key",
         min_length=32,
+        repr=False,
     )
     auth_cookie_secure: bool = False
     auth_session_ttl_seconds: int = 86400
@@ -115,26 +119,26 @@ class Settings(BaseSettings):
     air_quality_fallback_api_key: str = Field(default="", repr=False)
 
     weather_provider: Literal["openweather", "open_meteo", "fixture"] = "fixture"
-    weather_api_key: str = ""
+    weather_api_key: str = Field(default="", repr=False)
 
     geocoding_provider: Literal["openweather", "mapbox"] = "openweather"
-    geocoding_api_key: str = ""
+    geocoding_api_key: str = Field(default="", repr=False)
 
     email_provider: Literal["console", "resend"] = "console"
-    email_api_key: str = ""
+    email_api_key: str = Field(default="", repr=False)
     email_from_address: str = "no-reply@airwise.app"
 
     google_oauth_client_id: str = ""
-    google_oauth_client_secret: str = ""
+    google_oauth_client_secret: str = Field(default="", repr=False)
     google_oauth_redirect_uri: str = "http://localhost:8000/api/v1/auth/oauth/google/callback"
 
     frontend_url: str = "http://localhost:3000"
     backend_url: str = "http://localhost:8000"
     database_serverless_pool: bool = False
-    cron_secret: str = ""
+    cron_secret: str = Field(default="", repr=False)
 
     otel_service_name: str = "airwise-backend"
-    metrics_internal_token: str = ""
+    metrics_internal_token: str = Field(default="", repr=False)
 
     @model_validator(mode="after")
     def validate_production_invariants(self) -> Settings:

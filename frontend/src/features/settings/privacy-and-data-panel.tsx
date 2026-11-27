@@ -113,7 +113,7 @@ export function PrivacyAndDataPanel() {
         </p>
 
         {exportStatus ? (
-          <p role="status" className="mt-3 text-xs font-medium text-brand-secondary">
+          <p role="status" className="mt-3 text-xs font-medium text-emerald-800 dark:text-emerald-300">
             {exportStatus}
           </p>
         ) : null}
@@ -122,7 +122,7 @@ export function PrivacyAndDataPanel() {
           type="button"
           onClick={() => exportMutation.mutate()}
           disabled={exportMutation.isPending}
-          className="mt-4 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          className="mt-4 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:text-background"
         >
           {exportMutation.isPending ? "Preparing JSON archive…" : "Download JSON data export"}
         </button>

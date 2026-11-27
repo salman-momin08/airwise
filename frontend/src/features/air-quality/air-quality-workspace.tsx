@@ -154,7 +154,7 @@ export function AirQualityWorkspace({ initialCity, mode }: AirQualityWorkspacePr
           <button
             type="button"
             onClick={() => currentQuery.refetch()}
-            className="mt-4 rounded-lg bg-brand-primary px-4 py-2 text-xs font-semibold text-white"
+            className="mt-4 rounded-lg bg-brand-primary px-4 py-2 text-xs font-semibold text-white dark:text-background"
           >
             Retry live fetch
           </button>

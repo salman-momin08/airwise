@@ -45,8 +45,8 @@ export function AirQualityTrendsChart({
         : dt.toLocaleDateString([], { month: "short", day: "numeric" });
     return {
       label,
-      aqi: pt.aqi ?? 0,
-      pm25: pt.pm25_ug_m3 ?? 0,
+      aqi: pt.aqi,
+      pm25: pt.pm25_ug_m3,
     };
   });
 
@@ -81,7 +81,7 @@ export function AirQualityTrendsChart({
                 onClick={() => onPeriodChange(opt.value)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                   active
-                    ? "bg-brand-primary text-white"
+                    ? "bg-brand-primary text-white dark:text-background"
                     : "border border-border bg-background text-text-primary hover:bg-brand-accent/40"
                 }`}
               >
@@ -105,7 +105,7 @@ export function AirQualityTrendsChart({
           <button
             type="button"
             onClick={onRetry}
-            className="mt-3 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white"
+            className="mt-3 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white dark:text-background"
           >
             Retry
           </button>
@@ -115,7 +115,12 @@ export function AirQualityTrendsChart({
           No verified historical observations available for this time range.
         </p>
       ) : (
-        <div className="mt-6 h-72 w-full" aria-label={`${stdLabel} ${period} trend chart`}>
+        <div className="mt-6 h-72 w-full" role="region" aria-label={`${stdLabel} ${period} trend chart`}>
+          <p className="sr-only">
+            {minAqi !== null && maxAqi !== null
+              ? `${stdLabel} ${period} trend series with ${chartData.length} observations ranging from AQI ${minAqi} to ${maxAqi}. Missing intervals are left unplotted.`
+              : `${stdLabel} ${period} trend series with ${chartData.length} time intervals; AQI sub-index unavailable.`}
+          </p>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#DCE7E5" />
@@ -129,6 +134,7 @@ export function AirQualityTrendsChart({
                 stroke="#087F8C"
                 fill="#D5F2E3"
                 strokeWidth={2}
+                connectNulls={false}
               />
               <Area
                 type="monotone"
@@ -137,6 +143,7 @@ export function AirQualityTrendsChart({
                 stroke="#2D8A67"
                 fill="transparent"
                 strokeWidth={2}
+                connectNulls={false}
               />
             </AreaChart>
           </ResponsiveContainer>

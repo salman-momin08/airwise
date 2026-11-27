@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from app.ai.gateway.budget import TokenBudget
 from app.core.config import Settings, get_settings
 from app.core.exceptions import ExternalProviderUnavailableError, RateLimitExceededError
-from app.core.rate_limit import SlidingWindowRateLimiter
+from app.core.logging import redact_sensitive_mapping
+from app.core.rate_limit import MAX_LOCAL_RATE_WINDOWS, SlidingWindowRateLimiter
 from app.core.security import (
     hash_ip_address,
     hash_password,
@@ -17,7 +18,7 @@ from app.core.security import (
     verify_csrf_double_submit,
     verify_password,
 )
-from app.services.air_quality.cache import StaleAwareTelemetryCache
+from app.services.air_quality.cache import MAX_LOCAL_CACHE_ENTRIES, StaleAwareTelemetryCache
 from app.services.alerts.alert_service import AlertDeduplicator
 
 
@@ -104,4 +105,59 @@ async def test_redis_consumers_degrade_gracefully_on_invalid_url_scheme(
     local_budget = TokenBudget(disabled_redis, uuid.uuid4())
     await local_budget.reserve(100)
     get_settings.cache_clear()
+
+
+async def test_settings_secret_repr_redaction_and_bounded_local_memory() -> None:
+    cfg = Settings(
+        app_env="test",
+        database_url="postgresql+asyncpg://user:super-secret-db-pass@db.internal:5432/airwise",
+        redis_url="rediss://default:super-secret-redis-pass@cache.upstash.io:6379",
+        auth_secret_key="super-secret-auth-signing-key-at-least-32-bytes",
+        gemini_api_key="super-secret-gemini-key",
+        air_quality_api_key="super-secret-openaq-key",
+        air_quality_fallback_api_key="super-secret-fallback-key",
+        weather_api_key="super-secret-weather-key",
+        email_api_key="super-secret-resend-key",
+        google_oauth_client_secret="super-secret-google-oauth",
+        cron_secret="super-secret-cron-token",
+        metrics_internal_token="super-secret-metrics-token",
+    )
+    rendered = repr(cfg)
+    for secret_fragment in (
+        "super-secret-db-pass",
+        "super-secret-redis-pass",
+        "super-secret-auth-signing-key",
+        "super-secret-gemini-key",
+        "super-secret-openaq-key",
+        "super-secret-fallback-key",
+        "super-secret-weather-key",
+        "super-secret-resend-key",
+        "super-secret-google-oauth",
+        "super-secret-cron-token",
+        "super-secret-metrics-token",
+    ):
+        assert secret_fragment not in rendered
+
+    redacted = redact_sensitive_mapping(
+        {
+            "city": "Delhi",
+            "google_oauth_client_secret": "raw-oauth-secret",
+            "nested": [{"refresh_token": "raw-refresh", "safe": "ok"}],
+        }
+    )
+    assert redacted["city"] == "Delhi"
+    assert redacted["google_oauth_client_secret"] == "[REDACTED]"
+    assert redacted["nested"][0]["refresh_token"] == "[REDACTED]"
+    assert redacted["nested"][0]["safe"] == "ok"
+
+    cache = StaleAwareTelemetryCache()
+    for idx in range(MAX_LOCAL_CACHE_ENTRIES + 25):
+        await cache.set_payload(f"city:{idx}", _DummyCachedPayload(city=f"City-{idx}"))
+    assert len(cache._memory) <= MAX_LOCAL_CACHE_ENTRIES
+
+    limiter = SlidingWindowRateLimiter()
+    for idx in range(MAX_LOCAL_RATE_WINDOWS + 25):
+        await limiter.check("public_aqi", f"198.51.100.{idx}", limit=5, window_seconds=60)
+    assert len(limiter._memory_windows) <= MAX_LOCAL_RATE_WINDOWS
+
 

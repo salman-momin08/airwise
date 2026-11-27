@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -404,6 +405,22 @@ class OpenAQAirQualityAdapter:
             return (code, float(value), unit_clean)
         return None
 
+    @staticmethod
+    def _parse_iso_utc(raw_dt: object) -> datetime | None:
+        if not isinstance(raw_dt, str) or not raw_dt:
+            return None
+        try:
+            return datetime.fromisoformat(raw_dt.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    async def _fetch_location_latest(self, location_id: int) -> dict[str, Any]:
+        return await fetch_json_with_resilience(
+            f"{self.BASE_URL}/locations/{location_id}/latest",
+            headers=self._headers(),
+            transport=self._transport,
+        )
+
     async def fetch_city_stations(self, city: str) -> list[NormalizedStationTelemetry]:
         centroid = lookup_city_centroid(city)
         if centroid is None:
@@ -429,6 +446,11 @@ class OpenAQAirQualityAdapter:
             )
 
         stations: list[NormalizedStationTelemetry] = []
+        pending_locations: list[
+            tuple[datetime, int, dict[str, Any], float, float, dict[int, tuple[str, str]]]
+        ] = []
+        epoch = datetime.fromtimestamp(0, tz=UTC)
+
         for entry in raw_results:
             if not isinstance(entry, dict):
                 continue
@@ -440,53 +462,119 @@ class OpenAQAirQualityAdapter:
 
             measurements: dict[PollutantCode, tuple[float, str]] = {}
             latest_dt: datetime | None = None
+            sensor_map: dict[int, tuple[str, str]] = {}
             raw_sensors = entry.get("sensors")
             sensors: list[Any] = raw_sensors if isinstance(raw_sensors, list) else []
             for sensor in sensors:
                 if not isinstance(sensor, dict):
                     continue
                 param_obj = sensor.get("parameter") or {}
+                param_name = str(param_obj.get("name", ""))
+                param_units = str(param_obj.get("units", ""))
+                sensor_id = sensor.get("id")
+                if isinstance(sensor_id, int) and not isinstance(sensor_id, bool):
+                    sensor_map[sensor_id] = (param_name, param_units)
+
                 latest_obj = sensor.get("latest") or {}
                 val = latest_obj.get("value")
                 if not isinstance(val, (int, float)):
                     continue
-                parsed = self._parse_openaq_parameter(
-                    str(param_obj.get("name", "")),
-                    float(val),
-                    str(param_obj.get("units", "")),
-                )
+                parsed = self._parse_openaq_parameter(param_name, float(val), param_units)
                 if parsed is not None:
                     p_code, p_val, p_unit = parsed
                     measurements[p_code] = (p_val, p_unit)
-                dt_str = (latest_obj.get("datetime") or {}).get("utc")
-                if isinstance(dt_str, str):
-                    try:
-                        cand_dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-                        if latest_dt is None or cand_dt > latest_dt:
-                            latest_dt = cand_dt
-                    except ValueError:
-                        pass
+                cand_dt = self._parse_iso_utc((latest_obj.get("datetime") or {}).get("utc"))
+                if cand_dt is not None and (latest_dt is None or cand_dt > latest_dt):
+                    latest_dt = cand_dt
 
-            if not measurements:
-                continue
-            measured_at = latest_dt or datetime.now(tz=UTC)
-            stations.append(
-                NormalizedStationTelemetry(
-                    external_station_id=str(entry.get("id", "openaq-station")),
-                    name=str(entry.get("name", f"{centroid.city} Station")),
-                    city=centroid.city,
-                    state_region=centroid.state_region,
-                    country_code=centroid.country_code,
-                    latitude=float(lat),
-                    longitude=float(lon),
-                    provider=self.provider_slug,
-                    source_type="station",
-                    measured_at=measured_at,
-                    is_stale=is_timestamp_stale(measured_at),
-                    is_development_fixture=False,
-                    measurements=measurements,
+            if measurements:
+                measured_at = latest_dt or datetime.now(tz=UTC)
+                stations.append(
+                    NormalizedStationTelemetry(
+                        external_station_id=str(entry.get("id", "openaq-station")),
+                        name=str(entry.get("name", f"{centroid.city} Station")),
+                        city=centroid.city,
+                        state_region=centroid.state_region,
+                        country_code=centroid.country_code,
+                        latitude=float(lat),
+                        longitude=float(lon),
+                        provider=self.provider_slug,
+                        source_type="station",
+                        measured_at=measured_at,
+                        is_stale=is_timestamp_stale(measured_at),
+                        is_development_fixture=False,
+                        measurements=measurements,
+                    )
                 )
+                continue
+
+            loc_id = entry.get("id")
+            if sensor_map and isinstance(loc_id, int) and not isinstance(loc_id, bool):
+                last_seen = (
+                    self._parse_iso_utc((entry.get("datetimeLast") or {}).get("utc")) or epoch
+                )
+                pending_locations.append(
+                    (last_seen, loc_id, entry, float(lat), float(lon), sensor_map)
+                )
+
+        if not stations and pending_locations:
+            pending_locations.sort(key=lambda item: (item[0], len(item[5])), reverse=True)
+            selected = pending_locations[:4]
+            latest_batches = await asyncio.gather(
+                *(self._fetch_location_latest(item[1]) for item in selected),
+                return_exceptions=True,
             )
+            for (_, loc_id, entry, lat_f, lon_f, sensor_map), latest_res in zip(
+                selected, latest_batches, strict=True
+            ):
+                if not isinstance(latest_res, dict):
+                    continue
+                rows = latest_res.get("results")
+                if not isinstance(rows, list):
+                    continue
+                loc_measurements: dict[PollutantCode, tuple[float, str]] = {}
+                loc_dt: datetime | None = None
+                for row in rows:
+                    if not isinstance(row, dict):
+                        continue
+                    s_id = row.get("sensorsId")
+                    val = row.get("value")
+                    if (
+                        not isinstance(s_id, int)
+                        or isinstance(s_id, bool)
+                        or s_id not in sensor_map
+                        or not isinstance(val, (int, float))
+                    ):
+                        continue
+                    p_name, p_units = sensor_map[s_id]
+                    parsed = self._parse_openaq_parameter(p_name, float(val), p_units)
+                    if parsed is not None:
+                        p_code, p_val, p_unit = parsed
+                        loc_measurements[p_code] = (p_val, p_unit)
+                    cand_dt = self._parse_iso_utc((row.get("datetime") or {}).get("utc"))
+                    if cand_dt is not None and (loc_dt is None or cand_dt > loc_dt):
+                        loc_dt = cand_dt
+
+                if not loc_measurements:
+                    continue
+                measured_at = loc_dt or datetime.now(tz=UTC)
+                stations.append(
+                    NormalizedStationTelemetry(
+                        external_station_id=str(loc_id),
+                        name=str(entry.get("name", f"{centroid.city} Station")),
+                        city=centroid.city,
+                        state_region=centroid.state_region,
+                        country_code=centroid.country_code,
+                        latitude=lat_f,
+                        longitude=lon_f,
+                        provider=self.provider_slug,
+                        source_type="station",
+                        measured_at=measured_at,
+                        is_stale=is_timestamp_stale(measured_at),
+                        is_development_fixture=False,
+                        measurements=loc_measurements,
+                    )
+                )
 
         if not stations:
             raise ExternalProviderUnavailableError(
@@ -898,9 +986,244 @@ class FailoverAirQualityClient:
         raise last_error or ExternalProviderUnavailableError()
 
 
+class OpenMeteoAirQualityAdapter:
+    """Keyless Open-Meteo CAMS atmospheric model adapter (source_type='model')."""
+
+    provider_slug = "open_meteo"
+    BASE_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
+    POLLUTANT_PARAMS = "pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone"
+
+    def __init__(self, *, transport: httpx.AsyncBaseTransport | None = None) -> None:
+        self._transport = transport
+
+    @staticmethod
+    def _extract_current(current: dict[str, Any]) -> dict[PollutantCode, tuple[float, str]]:
+        measurements: dict[PollutantCode, tuple[float, str]] = {}
+        mapping: tuple[tuple[str, PollutantCode], ...] = (
+            ("pm2_5", PollutantCode.PM25),
+            ("pm10", PollutantCode.PM10),
+            ("nitrogen_dioxide", PollutantCode.NO2),
+            ("sulphur_dioxide", PollutantCode.SO2),
+            ("ozone", PollutantCode.O3),
+        )
+        for key, code in mapping:
+            raw_val = current.get(key)
+            if isinstance(raw_val, (int, float)) and raw_val >= 0:
+                measurements[code] = (round(float(raw_val), 2), "ug/m3")
+        raw_co = current.get("carbon_monoxide")
+        if isinstance(raw_co, (int, float)) and raw_co >= 0:
+            measurements[PollutantCode.CO] = (round(float(raw_co) / 1000.0, 3), "mg/m3")
+        return measurements
+
+    @classmethod
+    def _extract_hourly_index(
+        cls, hourly: dict[str, Any], idx: int
+    ) -> dict[PollutantCode, tuple[float, str]]:
+        row: dict[str, Any] = {}
+        for key in (
+            "pm2_5",
+            "pm10",
+            "nitrogen_dioxide",
+            "sulphur_dioxide",
+            "ozone",
+            "carbon_monoxide",
+        ):
+            series = hourly.get(key)
+            if isinstance(series, list) and idx < len(series):
+                row[key] = series[idx]
+        return cls._extract_current(row)
+
+    async def fetch_city_measurements(self, city: str) -> NormalizedProviderPayload:
+        centroid = lookup_city_centroid(city)
+        if centroid is None:
+            raise ExternalProviderUnavailableError(
+                code="AIR_QUALITY_CITY_UNSUPPORTED",
+                message=f"City '{city}' is not in the supported spatial gazetteer.",
+            )
+        body = await fetch_json_with_resilience(
+            self.BASE_URL,
+            params={
+                "latitude": centroid.latitude,
+                "longitude": centroid.longitude,
+                "current": self.POLLUTANT_PARAMS,
+                "timeformat": "unixtime",
+            },
+            transport=self._transport,
+        )
+        current = body.get("current")
+        if not isinstance(current, dict):
+            raise ExternalProviderUnavailableError()
+        measurements = self._extract_current(current)
+        if not measurements:
+            raise ExternalProviderUnavailableError()
+        raw_ts = current.get("time")
+        measured_at = (
+            datetime.fromtimestamp(int(raw_ts), tz=UTC)
+            if isinstance(raw_ts, (int, float))
+            else datetime.now(tz=UTC)
+        )
+        return NormalizedProviderPayload(
+            city=centroid.city,
+            provider=self.provider_slug,
+            source_type="model",
+            measured_at=measured_at,
+            is_stale=is_timestamp_stale(measured_at),
+            is_development_fixture=False,
+            measurements=measurements,
+        )
+
+    async def fetch_city_stations(self, city: str) -> list[NormalizedStationTelemetry]:
+        current = await self.fetch_city_measurements(city)
+        centroid = lookup_city_centroid(city)
+        if centroid is None:
+            return []
+        return [
+            NormalizedStationTelemetry(
+                external_station_id=f"open-meteo-cams-{centroid.city.lower()}",
+                name=f"{centroid.city} Regional Atmospheric Grid (Modeled)",
+                city=centroid.city,
+                state_region=centroid.state_region,
+                country_code=centroid.country_code,
+                latitude=centroid.latitude,
+                longitude=centroid.longitude,
+                provider=self.provider_slug,
+                source_type="model",
+                measured_at=current.measured_at,
+                is_stale=current.is_stale,
+                is_development_fixture=False,
+                measurements=current.measurements,
+            )
+        ]
+
+    async def fetch_city_forecast(
+        self, city: str, hours: int = 24
+    ) -> NormalizedForecastPayload:
+        centroid = lookup_city_centroid(city)
+        if centroid is None:
+            raise ExternalProviderUnavailableError(
+                code="AIR_QUALITY_CITY_UNSUPPORTED",
+                message=f"City '{city}' is not in the supported spatial gazetteer.",
+            )
+        bounded_hours = max(6, min(72, hours))
+        forecast_days = max(2, math.ceil(bounded_hours / 24) + 1)
+        body = await fetch_json_with_resilience(
+            self.BASE_URL,
+            params={
+                "latitude": centroid.latitude,
+                "longitude": centroid.longitude,
+                "hourly": self.POLLUTANT_PARAMS,
+                "forecast_days": forecast_days,
+                "timeformat": "unixtime",
+            },
+            transport=self._transport,
+        )
+        hourly = body.get("hourly")
+        times = hourly.get("time") if isinstance(hourly, dict) else None
+        if not isinstance(hourly, dict) or not isinstance(times, list) or not times:
+            raise ExternalProviderUnavailableError()
+
+        now = datetime.now(tz=UTC)
+        cutoff = now + timedelta(hours=bounded_hours)
+        slices: list[NormalizedForecastSlice] = []
+        future_indices = [
+            idx
+            for idx, ts in enumerate(times)
+            if isinstance(ts, (int, float))
+            and now <= datetime.fromtimestamp(int(ts), tz=UTC) <= cutoff
+        ]
+        for pos, idx in enumerate(future_indices):
+            if pos % 3 != 0:
+                continue
+            f_dt = datetime.fromtimestamp(int(times[idx]), tz=UTC)
+            measurements = self._extract_hourly_index(hourly, idx)
+            if not measurements:
+                continue
+            delta_h = (f_dt - now).total_seconds() / 3600.0
+            conf: Literal["low", "medium", "high"] = (
+                "high" if delta_h <= 12 else ("medium" if delta_h <= 36 else "low")
+            )
+            slices.append(
+                NormalizedForecastSlice(
+                    forecast_for=f_dt,
+                    measurements=measurements,
+                    confidence_level=conf,
+                )
+            )
+        if not slices:
+            raise ExternalProviderUnavailableError()
+        return NormalizedForecastPayload(
+            city=centroid.city,
+            provider=self.provider_slug,
+            source_type="model",
+            generated_at=now,
+            is_stale=False,
+            is_development_fixture=False,
+            slices=slices,
+        )
+
+    async def fetch_city_history(
+        self, city: str, period: Literal["24h", "7d", "30d"]
+    ) -> NormalizedHistoryPayload:
+        centroid = lookup_city_centroid(city)
+        if centroid is None:
+            raise ExternalProviderUnavailableError(
+                code="AIR_QUALITY_CITY_UNSUPPORTED",
+                message=f"City '{city}' is not in the supported spatial gazetteer.",
+            )
+        days = 1 if period == "24h" else (7 if period == "7d" else 30)
+        stride = 1 if period == "24h" else (6 if period == "7d" else 24)
+        body = await fetch_json_with_resilience(
+            self.BASE_URL,
+            params={
+                "latitude": centroid.latitude,
+                "longitude": centroid.longitude,
+                "hourly": self.POLLUTANT_PARAMS,
+                "past_days": days,
+                "forecast_days": 1,
+                "timeformat": "unixtime",
+            },
+            transport=self._transport,
+        )
+        hourly = body.get("hourly")
+        times = hourly.get("time") if isinstance(hourly, dict) else None
+        if not isinstance(hourly, dict) or not isinstance(times, list) or not times:
+            raise ExternalProviderUnavailableError()
+
+        now = datetime.now(tz=UTC)
+        start = now - timedelta(days=days)
+        past_indices = [
+            idx
+            for idx, ts in enumerate(times)
+            if isinstance(ts, (int, float))
+            and start <= datetime.fromtimestamp(int(ts), tz=UTC) <= now
+        ]
+        points: list[NormalizedHistoryPoint] = []
+        for pos, idx in enumerate(past_indices):
+            if pos % stride != 0:
+                continue
+            measurements = self._extract_hourly_index(hourly, idx)
+            if not measurements:
+                continue
+            points.append(
+                NormalizedHistoryPoint(
+                    timestamp=datetime.fromtimestamp(int(times[idx]), tz=UTC),
+                    measurements=measurements,
+                )
+            )
+        return NormalizedHistoryPayload(
+            city=centroid.city,
+            provider=self.provider_slug,
+            source_type="model",
+            is_stale=False,
+            is_development_fixture=False,
+            points=points,
+        )
+
+
 _CIRCUIT_BREAKERS: dict[str, ProviderCircuitBreaker] = {
     "openaq": ProviderCircuitBreaker("openaq"),
     "openweather": ProviderCircuitBreaker("openweather"),
+    "open_meteo": ProviderCircuitBreaker("open_meteo"),
     "cpcb": ProviderCircuitBreaker("cpcb"),
     "development_fixture": ProviderCircuitBreaker("development_fixture"),
 }
@@ -920,9 +1243,33 @@ def _instantiate_single_adapter(
         return OpenAQAirQualityAdapter(api_key=api_key)
     if provider_name == "openweather":
         return OpenWeatherAirQualityAdapter(api_key=api_key)
+    if provider_name == "open_meteo":
+        return OpenMeteoAirQualityAdapter()
     if provider_name == "cpcb":
         return CPCBRegionalAdapter(api_key=api_key)
     return None
+
+
+def _resolve_fallback_adapter(settings: Settings) -> AirQualityProviderAdapter | None:
+    fb_name = settings.air_quality_fallback_provider
+    if (
+        settings.air_quality_provider == "fixture"
+        or fb_name == "none"
+        or fb_name == settings.air_quality_provider
+    ):
+        return None
+    if fb_name == "open_meteo":
+        return OpenMeteoAirQualityAdapter()
+    if fb_name == "openweather":
+        ow_key = settings.air_quality_fallback_api_key or (
+            settings.weather_api_key if settings.weather_provider == "openweather" else ""
+        )
+        if not ow_key:
+            # Never send a primary OpenAQ/CPCB key to OpenWeather; use keyless Open-Meteo model
+            return OpenMeteoAirQualityAdapter()
+        return OpenWeatherAirQualityAdapter(api_key=ow_key)
+    fb_key = settings.air_quality_fallback_api_key or settings.air_quality_api_key
+    return _instantiate_single_adapter(fb_name, fb_key)
 
 
 def resolve_air_quality_adapter(settings: Settings) -> FailoverAirQualityClient:
@@ -935,16 +1282,7 @@ def resolve_air_quality_adapter(settings: Settings) -> FailoverAirQualityClient:
             message="Configured primary air quality provider is unsupported.",
         )
 
-    fallback: AirQualityProviderAdapter | None = None
-    if (
-        settings.air_quality_provider != "fixture"
-        and settings.air_quality_fallback_provider != "none"
-        and settings.air_quality_fallback_provider != settings.air_quality_provider
-    ):
-        fallback = _instantiate_single_adapter(
-            settings.air_quality_fallback_provider,
-            settings.air_quality_api_key,
-        )
+    fallback = _resolve_fallback_adapter(settings)
 
     return FailoverAirQualityClient(
         primary=primary,

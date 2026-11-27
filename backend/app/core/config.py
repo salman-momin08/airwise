@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator, model_validator
@@ -68,6 +69,13 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    def __init__(self, **values: Any) -> None:
+        if "_env_file" not in values and (
+            values.get("app_env") == "test" or os.getenv("APP_ENV") == "test"
+        ):
+            values["_env_file"] = None
+        super().__init__(**values)
+
     app_name: str = "AirWise AI"
     app_env: Literal["development", "test", "staging", "production"] = "development"
     debug: bool = False
@@ -97,9 +105,14 @@ class Settings(BaseSettings):
     ai_daily_token_budget: int = Field(default=200000, ge=1000)
     ai_requests_per_minute: int = Field(default=10, ge=1, le=60)
 
-    air_quality_provider: Literal["openaq", "openweather", "cpcb", "fixture"] = "fixture"
-    air_quality_fallback_provider: Literal["openaq", "openweather", "none"] = "openweather"
-    air_quality_api_key: str = ""
+    air_quality_provider: Literal["openaq", "openweather", "open_meteo", "cpcb", "fixture"] = (
+        "fixture"
+    )
+    air_quality_fallback_provider: Literal["openaq", "openweather", "open_meteo", "none"] = (
+        "open_meteo"
+    )
+    air_quality_api_key: str = Field(default="", repr=False)
+    air_quality_fallback_api_key: str = Field(default="", repr=False)
 
     weather_provider: Literal["openweather", "open_meteo", "fixture"] = "fixture"
     weather_api_key: str = ""

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Literal
 
+import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
@@ -14,10 +15,14 @@ from app.integrations.air_quality.provider import (
     NormalizedHistoryPayload,
     NormalizedProviderPayload,
     NormalizedStationTelemetry,
+    OpenAQAirQualityAdapter,
+    OpenMeteoAirQualityAdapter,
+    resolve_air_quality_adapter,
 )
 from app.integrations.http_resilience import (
     ProviderCircuitBreaker,
     assert_allowed_https_url,
+    fetch_json_with_resilience,
 )
 from app.services.air_quality.aqi_calculator import (
     AQIStandard,
@@ -180,3 +185,102 @@ async def test_primary_to_fallback_failover_and_stale_cache_warning(
             await service.get_current_air_quality(
                 city="Mumbai", standard=AQIStandard.INDIA_NAQI
             )
+
+
+async def test_openaq_v3_resolves_location_latest_by_sensors_id() -> None:
+    now_iso = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v3/locations":
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {
+                            "id": 8118,
+                            "name": "ITO Delhi CPCB",
+                            "coordinates": {"latitude": 28.6286, "longitude": 77.2410},
+                            "datetimeLast": {"utc": now_iso},
+                            "sensors": [
+                                {"id": 101, "parameter": {"name": "pm25", "units": "µg/m³"}},
+                                {"id": 102, "parameter": {"name": "pm10", "units": "µg/m³"}},
+                                {"id": 103, "parameter": {"name": "no2", "units": "µg/m³"}},
+                            ],
+                        }
+                    ]
+                },
+            )
+        if request.url.path == "/v3/locations/8118/latest":
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {"sensorsId": 101, "value": 168.4, "datetime": {"utc": now_iso}},
+                        {"sensorsId": 102, "value": 284.0, "datetime": {"utc": now_iso}},
+                        {"sensorsId": 103, "value": 72.5, "datetime": {"utc": now_iso}},
+                    ]
+                },
+            )
+        return httpx.Response(404)
+
+    adapter = OpenAQAirQualityAdapter(
+        api_key="test-openaq-key",
+        transport=httpx.MockTransport(respond),
+    )
+    payload = await adapter.fetch_city_measurements("Delhi")
+    assert payload.provider == "openaq"
+    assert payload.source_type == "station"
+    assert payload.measurements[PollutantCode.PM25] == (168.4, "ug/m3")
+    assert payload.measurements[PollutantCode.PM10] == (284.0, "ug/m3")
+    assert payload.measurements[PollutantCode.NO2] == (72.5, "ug/m3")
+
+
+async def test_openaq_does_not_leak_key_to_openweather_and_uses_open_meteo_fallback() -> None:
+    settings = Settings(
+        app_env="test",
+        air_quality_provider="openaq",
+        air_quality_fallback_provider="openweather",
+        air_quality_api_key="openaq-only-key-not-for-openweather",
+    )
+    client = resolve_air_quality_adapter(settings)
+    assert isinstance(client.fallback, OpenMeteoAirQualityAdapter)
+
+    now_epoch = int(datetime.now(tz=UTC).timestamp())
+    meteo_adapter = OpenMeteoAirQualityAdapter(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json={
+                    "current": {
+                        "time": now_epoch,
+                        "pm2_5": 142.0,
+                        "pm10": 230.0,
+                        "nitrogen_dioxide": 64.0,
+                        "sulphur_dioxide": 18.0,
+                        "ozone": 38.0,
+                        "carbon_monoxide": 1600.0,
+                    }
+                },
+            )
+        )
+    )
+    res = await meteo_adapter.fetch_city_measurements("Delhi")
+    assert res.provider == "open_meteo"
+    assert res.source_type == "model"
+    assert res.is_development_fixture is False
+    assert res.measurements[PollutantCode.CO] == (1.6, "mg/m3")
+
+    calls = 0
+
+    def unauthorized(_: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(401, json={"message": "Invalid API key"})
+
+    with pytest.raises(ExternalProviderUnavailableError):
+        await fetch_json_with_resilience(
+            "https://api.openweathermap.org/data/2.5/air_pollution",
+            transport=httpx.MockTransport(unauthorized),
+        )
+    assert calls == 1
+

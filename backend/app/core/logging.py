@@ -16,6 +16,7 @@ REDACTED_KEYS = frozenset(
         "gemini_api_key",
         "email_api_key",
         "air_quality_api_key",
+        "air_quality_fallback_api_key",
         "weather_api_key",
         "geocoding_api_key",
         "cron_secret",
@@ -44,3 +45,6 @@ def configure_logging(debug: bool = False) -> None:
         level=level,
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     )
+    # Prevent httpx/httpcore from logging outbound request URLs containing query-string secrets
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)

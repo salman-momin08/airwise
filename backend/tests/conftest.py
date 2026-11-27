@@ -3,11 +3,13 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import Any
 
 os.environ.setdefault("APP_ENV", "test")
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -31,6 +33,13 @@ from app.services.alerts.alert_service import alert_deduplicator
 async def db_engine(tmp_path: Path) -> AsyncIterator[AsyncEngine]:
     db_file = tmp_path / "airwise_test.sqlite3"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_file.as_posix()}")
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _enable_sqlite_foreign_keys(dbapi_connection: Any, _record: object) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine

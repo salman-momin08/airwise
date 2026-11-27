@@ -17,6 +17,7 @@ ALLOWED_EXTERNAL_ENVIRONMENTAL_HOSTS: frozenset[str] = frozenset(
         "api.openaq.org",
         "api.openweathermap.org",
         "api.open-meteo.com",
+        "air-quality-api.open-meteo.com",
         "api.data.gov.in",
     }
 )
@@ -114,6 +115,16 @@ async def fetch_json_with_resilience(
                 if response.status_code >= 500 and attempt < max_attempts:
                     await asyncio.sleep(0.25 * attempt)
                     continue
+                if 400 <= response.status_code < 500:
+                    logger.warning(
+                        "upstream_http_client_error",
+                        host=urlparse(url).hostname,
+                        status_code=response.status_code,
+                    )
+                    raise ExternalProviderUnavailableError(
+                        code="AIR_QUALITY_UPSTREAM_REJECTED",
+                        message="Upstream environmental data provider rejected the request.",
+                    )
                 response.raise_for_status()
                 body = response.json()
                 if not isinstance(body, dict):

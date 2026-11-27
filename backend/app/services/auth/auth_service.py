@@ -38,7 +38,6 @@ EMAIL_VERIFICATION_TTL_HOURS = 24
 PASSWORD_RESET_TTL_MINUTES = 30
 SESSION_RETENTION_DAYS = 30
 
-
 @dataclass(frozen=True)
 class IssuedSessionBundle:
     principal: AuthPrincipalData
@@ -46,12 +45,10 @@ class IssuedSessionBundle:
     raw_csrf_token: str
     max_age_seconds: int
 
-
 def _ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
-
 
 def _to_principal_data(user: User, session_id: uuid.UUID) -> AuthPrincipalData:
     preferred_std = (
@@ -67,7 +64,6 @@ def _to_principal_data(user: User, session_id: uuid.UUID) -> AuthPrincipalData:
         preferred_aqi_standard=standard,
         session_id=str(session_id),
     )
-
 
 class AuthService:
     """Domain service for registration, login, session rotation, revocation, and resets."""

@@ -82,7 +82,8 @@ describe("Assistant workspace", () => {
     expect(await screen.findByRole("article", { name: "Assistant guidance" })).toBeTruthy();
     expect(screen.getByText("Reduce indoor smoke sources.")).toBeTruthy();
     await waitFor(() => expect(assistantApi.stream).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(assistantApi.stream).mock.calls[0][0].ai_consent).toBe(true);
+    const firstStreamCall = vi.mocked(assistantApi.stream).mock.calls[0];
+    expect(firstStreamCall?.[0].ai_consent).toBe(true);
     expect(screen.getByText(/Chat history is/).textContent).toContain("not saved");
   });
 });

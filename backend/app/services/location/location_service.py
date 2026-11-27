@@ -91,7 +91,6 @@ SUPPORTED_GAZETTEER: tuple[GazetteerLocationMatch, ...] = (
     ),
 )
 
-
 def search_gazetteer(query: str) -> list[GazetteerLocationMatch]:
     needle = query.strip().lower()
     if not needle:
@@ -104,7 +103,6 @@ def search_gazetteer(query: str) -> list[GazetteerLocationMatch]:
         or entry.postal_prefix.startswith(needle[:3])
         or needle.startswith(entry.postal_prefix)
     ]
-
 
 class LocationService:
     """Service enforcing coarse-by-default location precision and user ownership."""

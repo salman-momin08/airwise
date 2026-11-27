@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from httpx import AsyncClient
 
-
 async def test_air_quality_and_weather_openapi_and_validation_contracts(
     api_client: AsyncClient,
 ) -> None:

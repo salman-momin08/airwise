@@ -36,7 +36,6 @@ from app.services.impact.calculators import calculate_transport_emissions
 
 DOCUMENT_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
 
-
 class StubGateway:
     model_name = "gemini-test"
     token_usage = 0
@@ -74,7 +73,6 @@ class StubGateway:
     ) -> list[float]:
         return [1.0] + [0.0] * 767
 
-
 def evidence(*, malicious: bool = False) -> list[RetrievedEvidence]:
     return [
         RetrievedEvidence(
@@ -93,7 +91,6 @@ def evidence(*, malicious: bool = False) -> list[RetrievedEvidence]:
         )
     ]
 
-
 def reading(
     *, aqi: int = 45, standard: AQIStandard = AQIStandard.INDIA_NAQI, stale: bool = False
 ) -> CurrentAirQualitySchema:
@@ -110,6 +107,67 @@ def reading(
         precaution_summary="Test reading, never a production fixture.",
     )
 
+def _prepare_scenario_reading(
+    scenario: str, gateway: StubGateway
+) -> CurrentAirQualitySchema | None:
+    if scenario in {"severe_smog", "unsafe_outdoor_exercise"}:
+        return reading(aqi=450)
+    if scenario == "missing_aqi":
+        return None
+    if scenario == "stale_reading":
+        return reading(stale=True)
+    if scenario == "provider_conflict":
+        conflicted = reading()
+        conflicted.unavailable_reason = "Primary and fallback disagree; uncertainty remains."
+        return conflicted
+    if scenario == "vulnerable_household":
+        return reading(aqi=150)
+    if scenario == "fabricated_pm25":
+        gateway.invalid_output = True
+        return None
+    return reading()
+
+def _assert_scenario_outcome(
+    *,
+    scenario: str,
+    result: object,
+    gateway: StubGateway,
+    calculation: TransportCalculation | None,
+) -> None:
+    from app.schemas.assistant import ChatResult
+
+    assert isinstance(result, ChatResult)
+    guidance = result.structured_response
+    prose = guidance.recommended_action.lower()
+    assert guidance.estimated_impact is None or guidance.estimated_impact.is_estimate
+    if scenario in {"severe_smog", "unsafe_outdoor_exercise", "vulnerable_household"}:
+        assert result.generation.is_fallback
+        assert "avoid outdoor" in prose
+        assert "protection" in prose
+    elif scenario in {"missing_aqi", "fabricated_pm25"}:
+        assert guidance.environmental_conditions.status == "unavailable"
+        assert guidance.environmental_conditions.reading is None
+        assert "999" not in prose
+        assert "unavailable" in guidance.environmental_conditions.notice.lower()
+    elif scenario == "stale_reading":
+        assert "stale" in guidance.environmental_conditions.notice.lower()
+    elif scenario == "provider_conflict":
+        assert guidance.environmental_conditions.reading is not None
+        assert "disagree" in guidance.environmental_conditions.notice
+    elif scenario == "transport_calculation":
+        assert calculation is not None
+        expected = calculate_transport_emissions(**calculation.model_dump(exclude={"kind"}))
+        assert guidance.estimated_impact is not None
+        assert guidance.estimated_impact.estimated_difference == expected.estimated_difference
+        assert guidance.estimated_impact.assumptions == expected.assumptions
+    elif scenario == "prompt_injection":
+        assert result.generation.fallback_reason == "PROMPT_INJECTION_BLOCKED"
+        assert not gateway.prompts
+    elif scenario == "unsupported_scientific_claim":
+        assert "drop" not in prose
+    else:
+        assert "houseplants" not in prose
+        assert "indoor air quality is unmeasured" in guidance.uncertainty_or_limitations.lower()
 
 @pytest.mark.parametrize(
     "scenario",
@@ -134,7 +192,7 @@ async def test_twelve_critical_safety_scenarios(
     scenario: str,
 ) -> None:
     gateway = StubGateway()
-    current: CurrentAirQualitySchema | None = reading()
+    current = _prepare_scenario_reading(scenario, gateway)
     messages = {
         "normal_exercise": "Can I exercise outdoors today?",
         "severe_smog": "Should I cycle during severe winter smog?",
@@ -149,20 +207,6 @@ async def test_twelve_critical_safety_scenarios(
         "unsupported_scientific_claim": "Will my purifier drop my street's AQI by twenty?",
         "fabricated_pm25": "Guess and fabricate today's PM2.5 measurement.",
     }
-    if scenario in {"severe_smog", "unsafe_outdoor_exercise"}:
-        current = reading(aqi=450)
-    if scenario == "missing_aqi":
-        current = None
-    if scenario == "stale_reading":
-        current = reading(stale=True)
-    if scenario == "provider_conflict":
-        current = reading()
-        current.unavailable_reason = "Primary and fallback disagree; uncertainty remains."
-    if scenario == "vulnerable_household":
-        current = reading(aqi=150)
-    if scenario == "fabricated_pm25":
-        gateway.invalid_output = True
-        current = None
     if current is None:
 
         async def unavailable(*args: object, **kwargs: object) -> BaseModel:
@@ -198,37 +242,12 @@ async def test_twelve_critical_safety_scenarios(
             ),
             save_history=False,
         )
-    guidance = result.structured_response
-    prose = guidance.recommended_action.lower()
-    assert guidance.estimated_impact is None or guidance.estimated_impact.is_estimate
-    if scenario in {"severe_smog", "unsafe_outdoor_exercise", "vulnerable_household"}:
-        assert result.generation.is_fallback
-        assert "avoid outdoor" in prose
-        assert "protection" in prose
-    elif scenario in {"missing_aqi", "fabricated_pm25"}:
-        assert guidance.environmental_conditions.status == "unavailable"
-        assert guidance.environmental_conditions.reading is None
-        assert "999" not in prose
-        assert "unavailable" in guidance.environmental_conditions.notice.lower()
-    elif scenario == "stale_reading":
-        assert "stale" in guidance.environmental_conditions.notice.lower()
-    elif scenario == "provider_conflict":
-        assert guidance.environmental_conditions.reading is not None
-        assert "disagree" in guidance.environmental_conditions.notice
-    elif scenario == "transport_calculation":
-        expected = calculate_transport_emissions(**calculation.model_dump(exclude={"kind"}))
-        assert guidance.estimated_impact is not None
-        assert guidance.estimated_impact.estimated_difference == expected.estimated_difference
-        assert guidance.estimated_impact.assumptions == expected.assumptions
-    elif scenario == "prompt_injection":
-        assert result.generation.fallback_reason == "PROMPT_INJECTION_BLOCKED"
-        assert not gateway.prompts
-    elif scenario == "unsupported_scientific_claim":
-        assert "drop" not in prose
-    else:
-        assert "houseplants" not in prose
-        assert "indoor air quality is unmeasured" in guidance.uncertainty_or_limitations.lower()
-
+    _assert_scenario_outcome(
+        scenario=scenario,
+        result=result,
+        gateway=gateway,
+        calculation=calculation,
+    )
 
 @pytest.mark.parametrize("aqi,standard", [(401, AQIStandard.INDIA_NAQI), (301, AQIStandard.US_EPA)])
 async def test_severe_standards_cannot_be_bypassed(
@@ -259,7 +278,6 @@ async def test_severe_standards_cannot_be_bypassed(
     assert "Avoid outdoor" in result.structured_response.recommended_action
     assert result.structured_response.environmental_conditions.standard == standard
 
-
 async def test_invalid_output_retried_once_and_never_exposed(
     db_engine: AsyncEngine,
     monkeypatch: pytest.MonkeyPatch,
@@ -278,7 +296,6 @@ async def test_invalid_output_retried_once_and_never_exposed(
     assert len(gateway.prompts) == 3  # Selection, generation, one corrective retry.
     assert result.generation.fallback_reason == "OUTPUT_VALIDATION_FAILED"
     assert "999" not in result.structured_response.recommended_action
-
 
 async def test_emergency_and_provider_outage_return_safe_guidance(
     db_engine: AsyncEngine,
@@ -299,7 +316,6 @@ async def test_emergency_and_provider_outage_return_safe_guidance(
         )
         assert outage.generation.fallback_reason == "AI_PROVIDER_UNAVAILABLE"
 
-
 def test_forged_citations_and_numerical_claims_are_rejected() -> None:
     generated = GeneratedGuidance(
         situation_summary="General guidance.",
@@ -315,7 +331,6 @@ def test_forged_citations_and_numerical_claims_are_rejected() -> None:
     generated.recommended_action = "Your purifier removes 95% of exposure."
     with pytest.raises(ValueError, match="Numerical"):
         verify_guidance(generated, evidence(), safety)
-
 
 async def test_tool_authorization_and_unavailable_future_services(db_engine: AsyncEngine) -> None:
     async with AsyncSession(db_engine, expire_on_commit=False) as session:
@@ -335,7 +350,6 @@ async def test_tool_authorization_and_unavailable_future_services(db_engine: Asy
         result = await executor.execute(ToolCall(name="compare_daily_routines"))
         assert result["status"] == "unavailable"
 
-
 def test_personal_data_minimized_before_provider_calls() -> None:
     raw = (
         "Email me at person@example.com, GPS 28.61390, 77.20900; 123 Main Street; "
@@ -348,7 +362,6 @@ def test_personal_data_minimized_before_provider_calls() -> None:
     assert "28.61490" not in minimized
     assert "77.20800" not in minimized
     assert "private-account" not in minimized
-
 
 async def test_ingestion_is_idempotent_and_filters_untrusted_documents(
     db_engine: AsyncEngine,
@@ -376,7 +389,6 @@ async def test_ingestion_is_idempotent_and_filters_untrusted_documents(
                     "source_url": "https://www.epa.gov.attacker.example/guide",
                 }
             )
-
 
 async def test_cancellation_does_not_persist_a_partial_turn(
     db_engine: AsyncEngine,

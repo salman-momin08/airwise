@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from httpx import AsyncClient
 
-
 async def test_current_history_forecast_stations_geojson_and_weather_flows(
     api_client: AsyncClient,
 ) -> None:

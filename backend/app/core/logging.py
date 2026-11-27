@@ -32,14 +32,12 @@ REDACTED_KEYS = frozenset(
     }
 )
 
-
 def _redact_value(value: Any) -> Any:
     if isinstance(value, dict):
         return redact_sensitive_mapping(value)
     if isinstance(value, list):
         return [_redact_value(item) for item in value]
     return value
-
 
 def redact_sensitive_mapping(payload: dict[str, Any]) -> dict[str, Any]:
     """Redact credentials, cookies, and secret keys prior to logging."""
@@ -50,7 +48,6 @@ def redact_sensitive_mapping(payload: dict[str, Any]) -> dict[str, Any]:
         else:
             sanitized[key] = _redact_value(value)
     return sanitized
-
 
 def configure_logging(debug: bool = False) -> None:
     level = logging.DEBUG if debug else logging.INFO

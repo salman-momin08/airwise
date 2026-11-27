@@ -140,6 +140,7 @@ describe("WCAG 2.2 Level AA Accessibility & Contrast Suite", () => {
                 category: "Moderate",
                 dominant_pollutant: "pm25",
                 pm25_ug_m3: 72,
+                pm10_ug_m3: 138,
                 confidence_level: "medium",
                 safer_outdoor_window: true,
               },

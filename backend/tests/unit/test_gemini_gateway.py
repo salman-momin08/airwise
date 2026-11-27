@@ -12,7 +12,6 @@ from app.core.config import Settings
 from app.core.exceptions import ExternalProviderUnavailableError, RateLimitExceededError
 from app.schemas.assistant import ToolPlan
 
-
 async def test_gemini_structured_output_and_embedding_rest_contract() -> None:
     requests: list[httpx.Request] = []
 
@@ -48,7 +47,6 @@ async def test_gemini_structured_output_and_embedding_rest_contract() -> None:
     assert body["generationConfig"]["responseJsonSchema"]["title"] == "ToolPlan"
     assert json.loads(requests[1].content)["outputDimensionality"] == 768
 
-
 @pytest.mark.parametrize(
     "response",
     [
@@ -67,7 +65,6 @@ async def test_blocked_truncated_and_malformed_outputs_are_rejected(
     with pytest.raises(OutputValidationError):
         await gateway.generate(system="Tools", prompt="Question", schema=ToolPlan)
 
-
 async def test_missing_key_and_redirect_are_not_followed() -> None:
     gateway = GeminiGateway(Settings(app_env="test", gemini_api_key=""))
     with pytest.raises(ExternalProviderUnavailableError, match="not been configured"):
@@ -85,7 +82,6 @@ async def test_missing_key_and_redirect_are_not_followed() -> None:
     with pytest.raises(ExternalProviderUnavailableError):
         await gateway.generate(system="Tools", prompt="Question", schema=ToolPlan)
     assert len(requests) == 1
-
 
 async def test_per_user_daily_budget_is_bounded_and_isolated() -> None:
     settings = Settings(app_env="test", ai_daily_token_budget=1000)

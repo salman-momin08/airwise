@@ -20,6 +20,15 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --upgrade pip \
     && /opt/venv/bin/pip install .
 
+FROM builder AS test
+
+ENV PATH="/opt/venv/bin:$PATH"
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
+COPY tests ./tests
+RUN /opt/venv/bin/pip install ".[dev]"
+CMD ["pytest", "-v", "--maxfail=1"]
+
 FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

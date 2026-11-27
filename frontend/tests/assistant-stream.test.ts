@@ -97,7 +97,9 @@ describe("Assistant event stream", () => {
       await assistantApi.stream(
         { ...values, ai_consent: true }, null, () => {}, new AbortController().signal,
       );
-      const options = fetch.mock.calls[0][1] as RequestInit;
+      const firstCall = fetch.mock.calls[0];
+      expect(firstCall).toBeDefined();
+      const options = firstCall?.[1] as RequestInit;
       expect(new Headers(options.headers).get("X-CSRF-Token")).toBe("csrf-test");
       expect(options.credentials).toBe("include");
       expect(JSON.parse(String(options.body)).ai_consent).toBe(true);

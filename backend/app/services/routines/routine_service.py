@@ -37,7 +37,6 @@ from app.services.recommendations.safety_engine import (
 )
 from app.services.weather.weather_service import WeatherTelemetryService
 
-
 def _parse_hhmm(value: str, fallback: time) -> time:
     try:
         parts = value.split(":")
@@ -45,12 +44,10 @@ def _parse_hhmm(value: str, fallback: time) -> time:
     except (ValueError, IndexError):
         return fallback
 
-
 def _ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
-
 
 class RoutinePlannerService:
     """Service managing smog-aware Morning–Night daily routines with explicit user confirmation."""
@@ -580,6 +577,5 @@ class RoutinePlannerService:
             ),
             windows=windows,
         )
-
 
 __all__ = ["RoutinePlannerService", "date"]

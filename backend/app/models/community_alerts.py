@@ -20,7 +20,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.models.identity import StringListType, utc_now
 
-
 class AlertRule(Base):
     __tablename__ = "alert_rules"
     __table_args__ = (Index("ix_alert_rules_user_enabled", "user_id", "is_enabled"),)
@@ -49,7 +48,6 @@ class AlertRule(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
-
 
 class Notification(Base):
     __tablename__ = "notifications"
@@ -80,7 +78,6 @@ class Notification(Base):
         order_by="NotificationDelivery.channel",
     )
 
-
 class NotificationDelivery(Base):
     __tablename__ = "notification_deliveries"
     __table_args__ = (Index("ix_notification_deliveries_notif_id", "notification_id"),)
@@ -96,7 +93,6 @@ class NotificationDelivery(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     notification: Mapped[Notification] = relationship("Notification", back_populates="deliveries")
-
 
 class Community(Base):
     __tablename__ = "communities"
@@ -116,7 +112,6 @@ class Community(Base):
         DateTime(timezone=True), nullable=False, default=utc_now
     )
 
-
 class CommunityMember(Base):
     __tablename__ = "community_members"
     __table_args__ = (Index("ix_community_members_user_id", "user_id"),)
@@ -132,7 +127,6 @@ class CommunityMember(Base):
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
-
 
 class CommunityInitiative(Base):
     __tablename__ = "community_initiatives"
@@ -157,7 +151,6 @@ class CommunityInitiative(Base):
         DateTime(timezone=True), nullable=False, default=utc_now
     )
 
-
 class CommunityParticipation(Base):
     __tablename__ = "community_participation"
     __table_args__ = (Index("ix_community_participation_initiative", "initiative_id"),)
@@ -176,7 +169,6 @@ class CommunityParticipation(Base):
     reported_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
-
 
 class CommunityAbuseReport(Base):
     __tablename__ = "community_abuse_reports"

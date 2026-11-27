@@ -18,7 +18,6 @@ down_revision: str | None = "20261126_0004"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-
 def upgrade() -> None:
     is_pg = op.get_bind().dialect.name == "postgresql"
     json_type: sa.types.TypeEngine[object] = postgresql.JSONB() if is_pg else sa.JSON()
@@ -222,7 +221,6 @@ def upgrade() -> None:
         "community_abuse_reports",
         ["status", "created_at"],
     )
-
 
 def downgrade() -> None:
     op.drop_index("ix_community_abuse_reports_status", table_name="community_abuse_reports")

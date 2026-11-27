@@ -22,7 +22,6 @@ from app.services.air_quality.telemetry_service import AirQualityTelemetryServic
 
 router = APIRouter(prefix="/air-quality", tags=["air-quality"])
 
-
 @router.get("/current", response_model=ApiResponse[CurrentAirQualitySchema])
 async def get_current_air_quality(
     city: Annotated[
@@ -37,7 +36,6 @@ async def get_current_air_quality(
     service = AirQualityTelemetryService(session=db, settings=settings)
     data = await service.get_current_air_quality(city=city, standard=standard)
     return ApiResponse(data=data, meta=meta)
-
 
 @router.get("/history", response_model=ApiResponse[HistoricalAirQualitySchema])
 async def get_historical_air_quality(
@@ -54,7 +52,6 @@ async def get_historical_air_quality(
     )
     return ApiResponse(data=data, meta=meta)
 
-
 @router.get("/forecast", response_model=ApiResponse[AirQualityForecastSchema])
 async def get_air_quality_forecast(
     city: Annotated[str, Query(min_length=2, max_length=100)],
@@ -69,7 +66,6 @@ async def get_air_quality_forecast(
         city=city, standard=standard, hours=hours
     )
     return ApiResponse(data=data, meta=meta)
-
 
 @router.get("/stations", response_model=ApiResponse[list[MonitoringStationSchema]])
 async def get_nearby_air_quality_stations(
@@ -91,7 +87,6 @@ async def get_nearby_air_quality_stations(
         radius_km=radius_km,
     )
     return ApiResponse(data=stations, meta=meta)
-
 
 @router.get("/map", response_model=ApiResponse[StationGeoJsonCollectionSchema])
 async def get_air_quality_map_geojson(

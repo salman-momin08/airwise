@@ -34,12 +34,10 @@ from app.schemas.impact import TransportImpactRequest
 from app.services.air_quality.aqi_calculator import AQIStandard
 from app.services.impact.impact_service import ImpactEngineService
 
-
 def _ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
-
 
 class CommunityService:
     """Service enforcing coarse neighborhood privacy, opt-in display consent, and moderation."""

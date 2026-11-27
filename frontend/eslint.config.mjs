@@ -12,6 +12,14 @@ const compat = new FlatCompat({
 const eslintConfig = [
   { ignores: [".next/**", "out/**", "next-env.d.ts"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    rules: {
+      complexity: ["error", 12],
+      eqeqeq: ["error", "always", { null: "ignore" }],
+      "no-console": ["error", { allow: ["warn", "error"] }],
+      "no-multiple-empty-lines": ["error", { max: 1, maxBOF: 0, maxEOF: 0 }],
+    },
+  },
 ];
 
 export default eslintConfig;

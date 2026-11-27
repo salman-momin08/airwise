@@ -2,9 +2,51 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import {
+  WorkspaceAuthOrErrorNotice,
+  WorkspaceSkeleton,
+} from "@/components/ui/workspace-state";
 import { alertsCommunityApi } from "@/lib/api/alerts-community";
-import { ApiClientError } from "@/lib/api/client";
 import { planningApi } from "@/lib/api/planning";
+
+function HistoryCardSection({
+  title,
+  linkHref,
+  linkLabel,
+  emptyText,
+  items,
+}: {
+  title: string;
+  linkHref: string;
+  linkLabel: string;
+  emptyText: string;
+  items: Array<{ id: string; primary: string; secondary: string }>;
+}) {
+  return (
+    <section className="space-y-3 rounded-card border border-border bg-surface p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-text-primary">
+          {title} ({items.length})
+        </h2>
+        <Link href={linkHref} className="text-xs text-brand-primary underline">
+          {linkLabel}
+        </Link>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-xs text-text-secondary">{emptyText}</p>
+      ) : (
+        <ul className="space-y-2 text-xs">
+          {items.slice(0, 10).map((item) => (
+            <li key={item.id} className="rounded border border-border p-3">
+              <p className="font-semibold text-text-primary">{item.primary}</p>
+              <p className="text-text-secondary">{item.secondary}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 export function ActivityHistoryWorkspace() {
   const routinesQuery = useQuery({
@@ -28,127 +70,62 @@ export function ActivityHistoryWorkspace() {
   });
 
   if (routinesQuery.isLoading) {
+    return <WorkspaceSkeleton className="mt-6 h-56" />;
+  }
+
+  if (routinesQuery.isError) {
     return (
-      <div
-        aria-busy="true"
-        className="mt-6 h-56 animate-pulse rounded-card border border-border bg-surface p-6"
+      <WorkspaceAuthOrErrorNotice
+        error={routinesQuery.error}
+        unauthPrompt="to inspect your saved daily routines, logged actions, and alert history."
+        errorMessage="Unable to load your activity history right now."
+        onRetry={() => void routinesQuery.refetch()}
+        retryLabel="Retry History"
       />
     );
   }
 
-  if (routinesQuery.isError) {
-    const unauth =
-      routinesQuery.error instanceof ApiClientError &&
-      routinesQuery.error.status === 401;
-    return (
-      <div role="alert" className="mt-6 rounded-card border border-border bg-surface p-6 text-sm">
-        {unauth ? (
-          <p>
-            Please{" "}
-            <Link href="/login" className="font-semibold text-brand-primary underline">
-              sign in
-            </Link>{" "}
-            to inspect your saved daily routines, logged actions, and alert history.
-          </p>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void routinesQuery.refetch()}
-            className="rounded border border-text-secondary px-3 py-1.5 font-medium"
-          >
-            Retry History
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  const routines = routinesQuery.data?.data ?? [];
-  const actions = actionsQuery.data?.data ?? [];
-  const notifications = notificationsQuery.data?.data ?? [];
+  const routineItems = (routinesQuery.data?.data ?? []).map((r) => ({
+    id: r.id,
+    primary: `${r.plan_date} · ${r.city} (${r.status.toUpperCase()})`,
+    secondary: `${r.activities.length} time-slotted blocks · ${
+      r.aqi_standard === "us_epa" ? "US EPA" : "India NAQI"
+    }`,
+  }));
+  const actionItems = (actionsQuery.data?.data ?? []).map((a) => ({
+    id: a.id,
+    primary: a.title,
+    secondary: `${a.quantity} ${a.unit} · ${new Date(a.occurred_at).toLocaleDateString()}`,
+  }));
+  const notificationItems = (notificationsQuery.data?.data ?? []).map((n) => ({
+    id: n.id,
+    primary: n.title,
+    secondary: new Date(n.created_at).toLocaleString(),
+  }));
 
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-3">
-      <section className="space-y-3 rounded-card border border-border bg-surface p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-text-primary">
-            Saved Routines ({routines.length})
-          </h2>
-          <Link
-            href="/dashboard/routine-planner"
-            className="text-xs text-brand-primary underline"
-          >
-            Planner
-          </Link>
-        </div>
-        {routines.length === 0 ? (
-          <p className="text-xs text-text-secondary">No saved routines yet.</p>
-        ) : (
-          <ul className="space-y-2 text-xs">
-            {routines.slice(0, 10).map((r) => (
-              <li key={r.id} className="rounded border border-border p-3">
-                <p className="font-semibold text-text-primary">
-                  {r.plan_date} · {r.city} ({r.status.toUpperCase()})
-                </p>
-                <p className="text-text-secondary">
-                  {r.activities.length} time-slotted blocks ·{" "}
-                  {r.aqi_standard === "us_epa" ? "US EPA" : "India NAQI"}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="space-y-3 rounded-card border border-border bg-surface p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-text-primary">
-            Logged Actions ({actions.length})
-          </h2>
-          <Link href="/dashboard/impact" className="text-xs text-brand-primary underline">
-            Impact Tracker
-          </Link>
-        </div>
-        {actions.length === 0 ? (
-          <p className="text-xs text-text-secondary">No self-reported actions logged yet.</p>
-        ) : (
-          <ul className="space-y-2 text-xs">
-            {actions.slice(0, 10).map((a) => (
-              <li key={a.id} className="rounded border border-border p-3">
-                <p className="font-semibold text-text-primary">{a.title}</p>
-                <p className="text-text-secondary">
-                  {a.quantity} {a.unit} · {new Date(a.occurred_at).toLocaleDateString()}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="space-y-3 rounded-card border border-border bg-surface p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-text-primary">
-            Alert Logs ({notifications.length})
-          </h2>
-          <Link href="/dashboard/alerts" className="text-xs text-brand-primary underline">
-            Smart Alerts
-          </Link>
-        </div>
-        {notifications.length === 0 ? (
-          <p className="text-xs text-text-secondary">No alert notifications triggered yet.</p>
-        ) : (
-          <ul className="space-y-2 text-xs">
-            {notifications.slice(0, 10).map((n) => (
-              <li key={n.id} className="rounded border border-border p-3">
-                <p className="font-semibold text-text-primary">{n.title}</p>
-                <p className="text-text-secondary">
-                  {new Date(n.created_at).toLocaleString()}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <HistoryCardSection
+        title="Saved Routines"
+        linkHref="/dashboard/routine-planner"
+        linkLabel="Planner"
+        emptyText="No saved routines yet."
+        items={routineItems}
+      />
+      <HistoryCardSection
+        title="Logged Actions"
+        linkHref="/dashboard/impact"
+        linkLabel="Impact Tracker"
+        emptyText="No self-reported actions logged yet."
+        items={actionItems}
+      />
+      <HistoryCardSection
+        title="Alert Logs"
+        linkHref="/dashboard/alerts"
+        linkLabel="Smart Alerts"
+        emptyText="No alert notifications triggered yet."
+        items={notificationItems}
+      />
     </div>
   );
 }

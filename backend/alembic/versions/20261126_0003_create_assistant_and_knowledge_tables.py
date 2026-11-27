@@ -16,7 +16,6 @@ down_revision: str | None = "20261125_0002"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-
 def upgrade() -> None:
     is_pg = op.get_bind().dialect.name == "postgresql"
     if is_pg:
@@ -102,7 +101,6 @@ def upgrade() -> None:
         sa.Column("fallback_reason", sa.String(100), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )
-
 
 def downgrade() -> None:
     for table in (

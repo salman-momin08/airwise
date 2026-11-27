@@ -7,7 +7,6 @@ from app.services.air_quality.aqi_calculator import AQIStandard, PollutantCode
 from app.services.impact.calculators import calculate_indoor_filtration_ach
 from app.services.recommendations.safety_engine import evaluate_environmental_rules
 
-
 def _build_reading(
     *,
     standard: AQIStandard,
@@ -43,7 +42,6 @@ def _build_reading(
         precaution_summary="Test snapshot",
     )
 
-
 def test_severe_smog_and_pm25_spike_block_exertion_and_active_commute() -> None:
     rules_naqi = evaluate_environmental_rules(
         standard=AQIStandard.INDIA_NAQI,
@@ -63,7 +61,6 @@ def test_severe_smog_and_pm25_spike_block_exertion_and_active_commute() -> None:
     assert rules_pm25.severity_tier == "severe"
     assert rules_pm25.block_active_outdoor_commute is True
 
-
 def test_vulnerable_household_escalates_at_moderate_aqi_and_low_budget_avoids_myths() -> None:
     rules = evaluate_environmental_rules(
         standard=AQIStandard.INDIA_NAQI,
@@ -76,7 +73,6 @@ def test_vulnerable_household_escalates_at_moderate_aqi_and_low_budget_avoids_my
     assert rules.block_active_outdoor_commute is True
     assert "do not rely on houseplants" in rules.indoor_filtration_guidance.lower()
     assert "never use ozone" in rules.indoor_filtration_guidance.lower()
-
 
 def test_unavailable_and_stale_readings_remain_honest() -> None:
     unavailable_rules = evaluate_environmental_rules(
@@ -92,7 +88,6 @@ def test_unavailable_and_stale_readings_remain_honest() -> None:
     )
     assert "stale" in stale_rules.uncertainty_disclaimer.lower()
     assert "stale" in stale_rules.ventilation_guidance.lower()
-
 
 def test_indoor_filtration_steady_state_ratio_and_active_smoke_caveat() -> None:
     clean_room = calculate_indoor_filtration_ach(

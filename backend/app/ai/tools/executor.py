@@ -27,6 +27,10 @@ from app.services.recommendations.recommendation_service import HybridRecommenda
 from app.services.routines.routine_service import RoutinePlannerService
 from app.services.weather.weather_service import WeatherTelemetryService
 
+_MISSING_CALCULATION_INPUTS = {
+    "status": "unavailable",
+    "reason": "Explicit structured calculation inputs and source assumptions are required.",
+}
 
 @dataclass
 class ToolExecutor:
@@ -60,142 +64,157 @@ class ToolExecutor:
         self.results[key] = result
         return result
 
-    async def _execute(self, call: ToolCall) -> dict[str, object]:
-        name = call.name
-        if name == "get_current_air_quality":
-            if self.request.city is None:
-                return {"status": "unavailable", "reason": "No city was selected."}
-            self.current = await AirQualityTelemetryService(
-                self.session, self.settings
-            ).get_current_air_quality(city=self.request.city, standard=self.request.standard)
-            return self.current.model_dump(mode="json")
-        if name in {"get_air_quality_forecast", "get_historical_air_quality"}:
-            if self.request.city is None:
-                return {"status": "unavailable", "reason": "No city was selected."}
-            service = AirQualityTelemetryService(self.session, self.settings)
-            if name == "get_air_quality_forecast":
-                forecast = await service.get_air_quality_forecast(
-                    city=self.request.city, standard=self.request.standard, hours=call.hours
-                )
-                return forecast.model_dump(mode="json")
-            history = await service.get_historical_air_quality(
-                city=self.request.city, standard=self.request.standard, period=call.period
-            )
-            return history.model_dump(mode="json")
-        if name == "get_weather_conditions":
-            if self.request.city is None:
-                return {"status": "unavailable", "reason": "No city was selected."}
-            weather = await WeatherTelemetryService(
-                self.session, self.settings
-            ).get_current_weather(city=self.request.city)
-            return weather.model_dump(mode="json")
-        if name == "get_saved_locations":
-            if self.user_id is None:
-                raise AuthenticationError()
-            locations = await IdentityRepository(self.session).list_saved_locations(
-                user_id=self.user_id
-            )
-            return {
-                "locations": [
-                    {"city": row.city, "country_code": row.country_code} for row in locations
-                ]
-            }
-        if name == "get_user_preferences":
-            if self.user_id is None:
-                raise AuthenticationError()
-            user = await IdentityRepository(self.session).get_user_by_id(self.user_id)
-            prefs = user.preferences if user else None
-            if prefs is None or prefs.consent_updated_at is None:
-                return {"status": "unavailable", "reason": "No consented preferences were saved."}
-            self.vulnerable = bool(prefs.has_vulnerable_members)
-            return {
-                "has_vulnerable_members": self.vulnerable,
-                "has_hepa_purifier": prefs.has_hepa_purifier,
-                "budget_tier": prefs.budget_tier,
-            }
-        if name == "retrieve_environmental_guidelines":
-            self.evidence = await self.knowledge.retrieve(
-                self.request.message,
-                jurisdiction="IN" if self.request.standard.value == "india_naqi" else "US",
-            )
-            return {
-                "status": "available" if self.evidence else "unavailable",
-                "evidence": [
-                    {"reference": item.reference.model_dump(mode="json"), "content": item.content}
-                    for item in self.evidence
-                ],
-            }
-        calculation = self.request.calculation
-        if (
-            name == "calculate_transport_emissions"
-            and calculation is not None
-            and calculation.kind == "transport"
-        ):
-            self.impact = calculate_transport_emissions(**calculation.model_dump(exclude={"kind"}))
-            return asdict(self.impact)
-        if (
-            name == "estimate_exposure_change"
-            and calculation is not None
-            and calculation.kind == "exposure"
-        ):
-            self.impact = estimate_relative_exposure_change(
-                **calculation.model_dump(exclude={"kind"})
-            )
-            return asdict(self.impact)
-        if name == "compare_daily_routines":
-            if self.user_id is None:
-                raise AuthenticationError()
-            planner = RoutinePlannerService(self.session, self.settings)
-            if self.request.city is not None:
-                comparison = await planner.compare_routine_windows(
-                    city=self.request.city,
-                    standard=self.request.standard,
-                    has_vulnerable_member=self.vulnerable,
-                )
-                return {
-                    "status": "available",
-                    "comparison": comparison.model_dump(mode="json"),
-                }
-            saved_routines = await planner.list_routines(user_id=self.user_id)
-            if saved_routines:
-                latest = saved_routines[0]
-                comparison = await planner.compare_routine_windows(
-                    city=latest.city,
-                    standard=latest.aqi_standard,
-                    has_vulnerable_member=self.vulnerable,
-                )
-                return {
-                    "status": "available",
-                    "comparison": comparison.model_dump(mode="json"),
-                }
-            return {
-                "status": "unavailable",
-                "reason": "Select a city or save a routine first to compare daily time blocks.",
-            }
-        if name == "generate_sustainable_alternatives":
-            rec_service = HybridRecommendationService(self.session, self.settings)
-            options = await rec_service.generate_screened_alternatives(
-                city=self.request.city,
-                standard=self.request.standard,
-            )
-            return {
-                "status": "available",
-                "alternatives": [opt.model_dump(mode="json") for opt in options],
-            }
-        if name == "get_community_initiatives":
-            comm_service = CommunityService(self.session, self.settings)
-            initiatives = await comm_service.list_public_initiatives_for_ai(
-                city=self.request.city
-            )
-            return {
-                "status": "available",
-                "initiatives": [item.model_dump(mode="json") for item in initiatives],
-                "privacy_notice": (
-                    "Aggregate self-reported participation only; "
-                    "never claims measured city AQI change."
-                ),
-            }
+    def _require_user_id(self) -> UUID:
+        if self.user_id is None:
+            raise AuthenticationError()
+        return self.user_id
+
+    async def _tool_current_aqi(self, _call: ToolCall) -> dict[str, object]:
+        if self.request.city is None:
+            return {"status": "unavailable", "reason": "No city was selected."}
+        self.current = await AirQualityTelemetryService(
+            self.session, self.settings
+        ).get_current_air_quality(city=self.request.city, standard=self.request.standard)
+        return self.current.model_dump(mode="json")
+
+    async def _tool_forecast_aqi(self, call: ToolCall) -> dict[str, object]:
+        if self.request.city is None:
+            return {"status": "unavailable", "reason": "No city was selected."}
+        forecast = await AirQualityTelemetryService(
+            self.session, self.settings
+        ).get_air_quality_forecast(
+            city=self.request.city, standard=self.request.standard, hours=call.hours
+        )
+        return forecast.model_dump(mode="json")
+
+    async def _tool_history_aqi(self, call: ToolCall) -> dict[str, object]:
+        if self.request.city is None:
+            return {"status": "unavailable", "reason": "No city was selected."}
+        history = await AirQualityTelemetryService(
+            self.session, self.settings
+        ).get_historical_air_quality(
+            city=self.request.city, standard=self.request.standard, period=call.period
+        )
+        return history.model_dump(mode="json")
+
+    async def _tool_weather(self, _call: ToolCall) -> dict[str, object]:
+        if self.request.city is None:
+            return {"status": "unavailable", "reason": "No city was selected."}
+        weather = await WeatherTelemetryService(
+            self.session, self.settings
+        ).get_current_weather(city=self.request.city)
+        return weather.model_dump(mode="json")
+
+    async def _tool_saved_locations(self, _call: ToolCall) -> dict[str, object]:
+        locations = await IdentityRepository(self.session).list_saved_locations(
+            user_id=self._require_user_id()
+        )
         return {
-            "status": "unavailable",
-            "reason": "Explicit structured calculation inputs and source assumptions are required.",
+            "locations": [
+                {"city": row.city, "country_code": row.country_code} for row in locations
+            ]
         }
+
+    async def _tool_user_preferences(self, _call: ToolCall) -> dict[str, object]:
+        user = await IdentityRepository(self.session).get_user_by_id(self._require_user_id())
+        prefs = user.preferences if user else None
+        if prefs is None or prefs.consent_updated_at is None:
+            return {"status": "unavailable", "reason": "No consented preferences were saved."}
+        self.vulnerable = bool(prefs.has_vulnerable_members)
+        return {
+            "has_vulnerable_members": self.vulnerable,
+            "has_hepa_purifier": prefs.has_hepa_purifier,
+            "budget_tier": prefs.budget_tier,
+        }
+
+    async def _tool_retrieve_guidelines(self, _call: ToolCall) -> dict[str, object]:
+        self.evidence = await self.knowledge.retrieve(
+            self.request.message,
+            jurisdiction="IN" if self.request.standard.value == "india_naqi" else "US",
+        )
+        return {
+            "status": "available" if self.evidence else "unavailable",
+            "evidence": [
+                {"reference": item.reference.model_dump(mode="json"), "content": item.content}
+                for item in self.evidence
+            ],
+        }
+
+    async def _tool_transport_emissions(self, _call: ToolCall) -> dict[str, object]:
+        calc = self.request.calculation
+        if calc is None or calc.kind != "transport":
+            return dict(_MISSING_CALCULATION_INPUTS)
+        self.impact = calculate_transport_emissions(**calc.model_dump(exclude={"kind"}))
+        return asdict(self.impact)
+
+    async def _tool_exposure_change(self, _call: ToolCall) -> dict[str, object]:
+        calc = self.request.calculation
+        if calc is None or calc.kind != "exposure":
+            return dict(_MISSING_CALCULATION_INPUTS)
+        self.impact = estimate_relative_exposure_change(**calc.model_dump(exclude={"kind"}))
+        return asdict(self.impact)
+
+    async def _tool_compare_routines(self, _call: ToolCall) -> dict[str, object]:
+        uid = self._require_user_id()
+        planner = RoutinePlannerService(self.session, self.settings)
+        target_city = self.request.city
+        target_standard = self.request.standard
+        if target_city is None:
+            saved_routines = await planner.list_routines(user_id=uid)
+            if not saved_routines:
+                return {
+                    "status": "unavailable",
+                    "reason": "Select a city or save a routine first to compare daily time blocks.",
+                }
+            target_city = saved_routines[0].city
+            target_standard = saved_routines[0].aqi_standard
+
+        comparison = await planner.compare_routine_windows(
+            city=target_city,
+            standard=target_standard,
+            has_vulnerable_member=self.vulnerable,
+        )
+        return {"status": "available", "comparison": comparison.model_dump(mode="json")}
+
+    async def _tool_sustainable_alternatives(self, _call: ToolCall) -> dict[str, object]:
+        rec_service = HybridRecommendationService(self.session, self.settings)
+        options = await rec_service.generate_screened_alternatives(
+            city=self.request.city,
+            standard=self.request.standard,
+        )
+        return {
+            "status": "available",
+            "alternatives": [opt.model_dump(mode="json") for opt in options],
+        }
+
+    async def _tool_community_initiatives(self, _call: ToolCall) -> dict[str, object]:
+        comm_service = CommunityService(self.session, self.settings)
+        initiatives = await comm_service.list_public_initiatives_for_ai(city=self.request.city)
+        return {
+            "status": "available",
+            "initiatives": [item.model_dump(mode="json") for item in initiatives],
+            "privacy_notice": (
+                "Aggregate self-reported participation only; "
+                "never claims measured city AQI change."
+            ),
+        }
+
+    async def _execute(self, call: ToolCall) -> dict[str, object]:
+        dispatch = {
+            "get_current_air_quality": self._tool_current_aqi,
+            "get_air_quality_forecast": self._tool_forecast_aqi,
+            "get_historical_air_quality": self._tool_history_aqi,
+            "get_weather_conditions": self._tool_weather,
+            "get_saved_locations": self._tool_saved_locations,
+            "get_user_preferences": self._tool_user_preferences,
+            "retrieve_environmental_guidelines": self._tool_retrieve_guidelines,
+            "calculate_transport_emissions": self._tool_transport_emissions,
+            "estimate_exposure_change": self._tool_exposure_change,
+            "compare_daily_routines": self._tool_compare_routines,
+            "generate_sustainable_alternatives": self._tool_sustainable_alternatives,
+            "get_community_initiatives": self._tool_community_initiatives,
+        }
+        handler = dispatch.get(call.name)
+        if handler is None:
+            return dict(_MISSING_CALCULATION_INPUTS)
+        return await handler(call)

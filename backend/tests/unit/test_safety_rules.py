@@ -9,7 +9,6 @@ from app.ai.guardrails.safety_rules import (
 from app.ai.tools.registry import ALLOWLISTED_TOOL_NAMES, MAX_TOOL_CALL_DEPTH
 from app.services.air_quality.aqi_calculator import AQIStandard
 
-
 class TestSafetyRulesAndToolAllowlist(unittest.TestCase):
     def test_severe_smog_blocks_outdoor_cycling_and_exertion(self) -> None:
         gate = evaluate_environmental_safety(
@@ -45,7 +44,6 @@ class TestSafetyRulesAndToolAllowlist(unittest.TestCase):
         self.assertIn("get_current_air_quality", ALLOWLISTED_TOOL_NAMES)
         self.assertIn("calculate_transport_emissions", ALLOWLISTED_TOOL_NAMES)
         self.assertLessEqual(MAX_TOOL_CALL_DEPTH, 5)
-
 
 if __name__ == "__main__":
     unittest.main()

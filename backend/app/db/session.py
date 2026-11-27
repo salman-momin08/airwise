@@ -16,7 +16,6 @@ from app.core.config import get_settings
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 
-
 def _use_serverless_null_pool() -> bool:
     settings = get_settings()
     return (
@@ -24,7 +23,6 @@ def _use_serverless_null_pool() -> bool:
         or os.getenv("VERCEL") == "1"
         or settings.database_url.startswith("sqlite")
     )
-
 
 def get_engine() -> AsyncEngine:
     global _engine
@@ -50,13 +48,11 @@ def get_engine() -> AsyncEngine:
             )
     return _engine
 
-
 def reset_db_engine() -> None:
     """Reset cached engine and session factory (used in isolated test fixtures)."""
     global _engine, _session_factory
     _engine = None
     _session_factory = None
-
 
 def get_session_factory() -> async_sessionmaker[AsyncSession]:
     global _session_factory
@@ -67,7 +63,6 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
             autoflush=False,
         )
     return _session_factory
-
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:
     session_factory = get_session_factory()

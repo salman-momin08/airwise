@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable
 from datetime import UTC, datetime
-from typing import cast
+from typing import ClassVar, cast
 from uuid import UUID
 
 import structlog
@@ -25,12 +25,11 @@ redis.call('EXPIRE', KEYS[1], 172800)
 return 1
 """
 
-
 class TokenBudget:
-    _test_usage: dict[str, int] = {}
-    _redis_client: Redis | None = None
-    _redis_url_cached: str | None = None
-    _redis_loop: asyncio.AbstractEventLoop | None = None
+    _test_usage: ClassVar[dict[str, int]] = {}
+    _redis_client: ClassVar[Redis | None] = None
+    _redis_url_cached: ClassVar[str | None] = None
+    _redis_loop: ClassVar[asyncio.AbstractEventLoop | None] = None
 
     def __init__(self, settings: Settings, user_id: UUID) -> None:
         self._settings = settings

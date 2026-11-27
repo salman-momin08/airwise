@@ -63,7 +63,6 @@ _NUMBER_CLAIM = re.compile(
     re.IGNORECASE,
 )
 
-
 def _is_safe_ai_reason(reason: str) -> bool:
     cleaned = re.sub(r"PM2\.5|PM10|CO2e?|N95|FFP2|HEPA", "", reason, flags=re.IGNORECASE)
     if _NUMBER_CLAIM.search(cleaned):
@@ -71,16 +70,12 @@ def _is_safe_ai_reason(reason: str) -> bool:
     if is_injection(reason) or contains_prohibited_scientific_claim(reason):
         return False
     lowered = reason.lower()
-    if "indoor air is safe" in lowered or "drop" in lowered and "street" in lowered:
-        return False
-    return True
-
+    return not ("indoor air is safe" in lowered or ("drop" in lowered and "street" in lowered))
 
 def _ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
-
 
 class HybridRecommendationService:
     """Generates deterministic + optional Gemini-phrased cards across all 5 categories."""

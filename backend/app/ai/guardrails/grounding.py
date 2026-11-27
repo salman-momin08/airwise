@@ -26,14 +26,11 @@ _INJECTION = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
-
 def minimize_text(text: str) -> str:
     return _PRIVATE_INPUT.sub("[private detail removed]", text)
 
-
 def is_injection(text: str) -> bool:
     return bool(_INJECTION.search(text))
-
 
 def verify_guidance(
     generated: GeneratedGuidance, evidence: list[RetrievedEvidence], safety: SafetyEvaluation

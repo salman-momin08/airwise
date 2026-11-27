@@ -6,7 +6,6 @@ from typing import Protocol
 from app.core.config import Settings
 from app.core.exceptions import AirWiseError
 
-
 @dataclass(frozen=True)
 class OAuthVerifiedIdentity:
     provider: str
@@ -14,7 +13,6 @@ class OAuthVerifiedIdentity:
     email: str
     is_email_verified: bool
     display_name: str
-
 
 class OAuthIdentityAdapter(Protocol):
     """Provider-independent OAuth 2.0 identity adapter contract."""
@@ -24,7 +22,6 @@ class OAuthIdentityAdapter(Protocol):
     def build_authorization_url(self, state_token: str) -> str: ...
 
     async def exchange_code(self, code: str) -> OAuthVerifiedIdentity: ...
-
 
 class GoogleOAuthAdapterStub:
     """Typed Google OAuth 2.0 adapter stub ready for credentials."""

@@ -14,7 +14,6 @@ from app.services.weather.weather_service import WeatherTelemetryService
 
 router = APIRouter(prefix="/weather", tags=["weather"])
 
-
 @router.get("/current", response_model=ApiResponse[CurrentWeatherSchema])
 async def get_current_weather(
     city: Annotated[str, Query(min_length=2, max_length=100)],

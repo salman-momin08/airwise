@@ -1,17 +1,92 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiClientError } from "@/lib/api/client";
+import { WorkspaceAuthOrErrorNotice } from "@/components/ui/workspace-state";
 import { identityApi } from "@/lib/api/identity";
 import {
   profileSettingsSchema,
   type ProfileSettingsFormValues,
 } from "@/lib/validation/identity";
 import { useLocationStore } from "@/stores/location-store";
+import type { SessionRecord } from "@/types/api";
+
+function ActiveSessionsSection({
+  sessions,
+  isLoading,
+  revokePending,
+  revokeOthersPending,
+  onRevokeOthers,
+  onRevokeSession,
+}: {
+  sessions: SessionRecord[];
+  isLoading: boolean;
+  revokePending: boolean;
+  revokeOthersPending: boolean;
+  onRevokeOthers: () => void;
+  onRevokeSession: (sessionId: string) => void;
+}) {
+  return (
+    <section className="rounded-card border border-border bg-surface p-6 shadow-sm">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary">Active Browser Sessions</h2>
+          <p className="text-xs text-text-secondary">
+            HttpOnly server-tracked sessions. Revoke unfamiliar devices immediately.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onRevokeOthers}
+          disabled={revokeOthersPending}
+          className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-brand-accent/30 disabled:opacity-60"
+        >
+          Sign out other devices
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div aria-busy="true" className="h-16 animate-pulse rounded-lg bg-border" />
+      ) : (
+        <ul className="divide-y divide-border text-sm">
+          {sessions.map((sess) => (
+            <li
+              key={sess.id}
+              className="flex flex-wrap items-center justify-between gap-3 py-3"
+            >
+              <div>
+                <p className="font-medium text-text-primary">
+                  {sess.user_agent ?? "Browser session"}{" "}
+                  {sess.is_current ? (
+                    <span className="ml-2 rounded border border-brand-primary/50 bg-brand-accent px-2 py-0.5 text-xs font-semibold text-text-primary">
+                      Current device
+                    </span>
+                  ) : null}
+                </p>
+                <p className="text-xs text-text-secondary">
+                  Signed in {new Date(sess.created_at).toLocaleString()} · Expires{" "}
+                  {new Date(sess.expires_at).toLocaleString()}
+                </p>
+              </div>
+              {!sess.is_current ? (
+                <button
+                  type="button"
+                  onClick={() => onRevokeSession(sess.id)}
+                  disabled={revokePending}
+                  className="rounded-lg border border-red-400/50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-500/10 dark:text-red-300"
+                >
+                  Revoke
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 export function ProfileAndSessionsPanel() {
   const queryClient = useQueryClient();
@@ -88,38 +163,19 @@ export function ProfileAndSessionsPanel() {
   }
 
   if (meQuery.isError) {
-    const isUnauthenticated =
-      meQuery.error instanceof ApiClientError && meQuery.error.status === 401;
     return (
-      <div
-        role="alert"
-        className="rounded-card border border-border bg-surface p-6 text-sm text-text-primary"
-      >
-        {isUnauthenticated ? (
-          <p>
-            Please{" "}
-            <Link href="/login" className="font-semibold text-brand-primary underline">
-              sign in
-            </Link>{" "}
-            to view and update your profile settings.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            <p>Unable to load profile settings right now.</p>
-            <button
-              type="button"
-              onClick={() => meQuery.refetch()}
-              className="rounded-lg bg-brand-primary px-3 py-1.5 font-medium text-white dark:text-background"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-      </div>
+      <WorkspaceAuthOrErrorNotice
+        error={meQuery.error}
+        unauthPrompt="to view and update your profile settings."
+        errorMessage="Unable to load profile settings right now."
+        onRetry={() => void meQuery.refetch()}
+        className=""
+      />
     );
   }
 
   const user = meQuery.data?.data;
+  const displayNameError = form.formState.errors.display_name;
 
   return (
     <div className="space-y-8">
@@ -161,14 +217,12 @@ export function ProfileAndSessionsPanel() {
             <input
               id="profile-display-name"
               type="text"
-              aria-invalid={Boolean(form.formState.errors.display_name)}
+              aria-invalid={Boolean(displayNameError)}
               {...form.register("display_name")}
               className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary"
             />
-            {form.formState.errors.display_name ? (
-              <p className="mt-1 text-xs text-red-600">
-                {form.formState.errors.display_name.message}
-              </p>
+            {displayNameError ? (
+              <p className="mt-1 text-xs text-red-600">{displayNameError.message}</p>
             ) : null}
           </div>
 
@@ -230,62 +284,14 @@ export function ProfileAndSessionsPanel() {
         </form>
       </section>
 
-      <section className="rounded-card border border-border bg-surface p-6 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary">Active Browser Sessions</h2>
-            <p className="text-xs text-text-secondary">
-              HttpOnly server-tracked sessions. Revoke unfamiliar devices immediately.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => revokeOthersMutation.mutate()}
-            disabled={revokeOthersMutation.isPending}
-            className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-brand-accent/30 disabled:opacity-60"
-          >
-            Sign out other devices
-          </button>
-        </div>
-
-        {sessionsQuery.isLoading ? (
-          <div aria-busy="true" className="h-16 animate-pulse rounded-lg bg-border" />
-        ) : (
-          <ul className="divide-y divide-border text-sm">
-            {(sessionsQuery.data?.data ?? []).map((sess) => (
-              <li
-                key={sess.id}
-                className="flex flex-wrap items-center justify-between gap-3 py-3"
-              >
-                <div>
-                  <p className="font-medium text-text-primary">
-                    {sess.user_agent ?? "Browser session"}{" "}
-                    {sess.is_current ? (
-                      <span className="ml-2 rounded border border-brand-primary/50 bg-brand-accent px-2 py-0.5 text-xs font-semibold text-text-primary">
-                        Current device
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="text-xs text-text-secondary">
-                    Signed in {new Date(sess.created_at).toLocaleString()} · Expires{" "}
-                    {new Date(sess.expires_at).toLocaleString()}
-                  </p>
-                </div>
-                {!sess.is_current ? (
-                  <button
-                    type="button"
-                    onClick={() => revokeSessionMutation.mutate(sess.id)}
-                    disabled={revokeSessionMutation.isPending}
-                    className="rounded-lg border border-red-400/50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-500/10 dark:text-red-300"
-                  >
-                    Revoke
-                  </button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <ActiveSessionsSection
+        sessions={sessionsQuery.data?.data ?? []}
+        isLoading={sessionsQuery.isLoading}
+        revokePending={revokeSessionMutation.isPending}
+        revokeOthersPending={revokeOthersMutation.isPending}
+        onRevokeOthers={() => revokeOthersMutation.mutate()}
+        onRevokeSession={(sessionId) => revokeSessionMutation.mutate(sessionId)}
+      />
     </div>
   );
 }

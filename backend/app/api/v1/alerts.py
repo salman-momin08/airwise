@@ -34,7 +34,6 @@ Database = Annotated[AsyncSession, Depends(get_db_session)]
 AppSettings = Annotated[Settings, Depends(get_app_settings)]
 Meta = Annotated[ResponseMeta, Depends(get_response_meta)]
 
-
 @router.get("", response_model=ApiResponse[list[AlertRuleSchema]])
 async def list_alert_rules(
     principal: Principal,
@@ -45,7 +44,6 @@ async def list_alert_rules(
     service = SmartAlertService(session=db, settings=settings)
     rules = await service.list_rules(user_id=principal.user_id)
     return ApiResponse(data=rules, meta=meta)
-
 
 @router.post(
     "",
@@ -64,7 +62,6 @@ async def create_alert_rule(
     service = SmartAlertService(session=db, settings=settings)
     rule = await service.create_rule(user_id=principal.user_id, payload=payload)
     return ApiResponse(data=rule, meta=meta)
-
 
 @router.patch(
     "/{rule_id}",
@@ -85,7 +82,6 @@ async def update_alert_rule(
     )
     return ApiResponse(data=rule, meta=meta)
 
-
 @router.delete(
     "/{rule_id}",
     response_model=ApiResponse[dict[str, str]],
@@ -101,7 +97,6 @@ async def delete_alert_rule(
     service = SmartAlertService(session=db, settings=settings)
     await service.delete_rule(user_id=principal.user_id, rule_id=rule_id)
     return ApiResponse(data={"status": "deleted"}, meta=meta)
-
 
 @router.post(
     "/evaluate",
@@ -119,7 +114,6 @@ async def evaluate_my_alert_rules(
     summary = await service.evaluate_active_rules(user_id=principal.user_id)
     return ApiResponse(data=summary, meta=meta)
 
-
 @router.post(
     "/unsubscribe-all",
     response_model=ApiResponse[dict[str, int]],
@@ -135,7 +129,6 @@ async def unsubscribe_all_alert_rules(
     disabled_count = await service.unsubscribe_all(user_id=principal.user_id)
     return ApiResponse(data={"disabled_rules_count": disabled_count}, meta=meta)
 
-
 @notifications_router.get("", response_model=ApiResponse[list[NotificationSchema]])
 async def list_notifications(
     principal: Principal,
@@ -147,7 +140,6 @@ async def list_notifications(
     service = SmartAlertService(session=db, settings=settings)
     items = await service.list_notifications(user_id=principal.user_id, limit=limit)
     return ApiResponse(data=items, meta=meta)
-
 
 @notifications_router.patch(
     "/{notification_id}/read",
@@ -166,7 +158,6 @@ async def mark_notification_read(
         user_id=principal.user_id, notification_id=notification_id
     )
     return ApiResponse(data=item, meta=meta)
-
 
 @notifications_router.post(
     "/read-all",

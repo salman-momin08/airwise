@@ -22,7 +22,6 @@ ALLOWED_EXTERNAL_ENVIRONMENTAL_HOSTS: frozenset[str] = frozenset(
     }
 )
 
-
 def assert_allowed_https_url(url: str) -> None:
     """Outbound SSRF defense: permit only allowlisted HTTPS environmental API hosts."""
     parsed = urlparse(url)
@@ -34,7 +33,6 @@ def assert_allowed_https_url(url: str) -> None:
             code="SSRF_HOST_BLOCKED",
             message="Outbound environmental request blocked by host allowlist.",
         )
-
 
 class ProviderCircuitBreaker:
     """Lightweight per-provider circuit breaker preventing cascading upstream timeouts."""
@@ -81,7 +79,6 @@ class ProviderCircuitBreaker:
         self._failure_count = 0
         self._opened_at = None
 
-
 _shared_http_client: httpx.AsyncClient | None = None
 _shared_http_loop: asyncio.AbstractEventLoop | None = None
 _DEFAULT_HTTP_TIMEOUT = httpx.Timeout(connect=3.0, read=8.0, write=5.0, pool=3.0)
@@ -90,7 +87,6 @@ _DEFAULT_HTTP_LIMITS = httpx.Limits(
     max_connections=50,
     keepalive_expiry=30.0,
 )
-
 
 def _get_shared_http_client() -> httpx.AsyncClient:
     global _shared_http_client, _shared_http_loop
@@ -108,7 +104,6 @@ def _get_shared_http_client() -> httpx.AsyncClient:
         _shared_http_loop = current_loop
     return _shared_http_client
 
-
 async def close_shared_http_clients() -> None:
     """Close shared outbound connection pool on application shutdown."""
     global _shared_http_client, _shared_http_loop
@@ -117,7 +112,6 @@ async def close_shared_http_clients() -> None:
     _shared_http_loop = None
     if client is not None and not client.is_closed:
         await client.aclose()
-
 
 async def _execute_resilient_get(
     client: httpx.AsyncClient,
@@ -174,7 +168,6 @@ async def _execute_resilient_get(
         error=type(last_exc).__name__,
     )
     raise ExternalProviderUnavailableError()
-
 
 async def fetch_json_with_resilience(
     url: str,

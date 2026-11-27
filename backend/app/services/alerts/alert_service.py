@@ -42,19 +42,16 @@ from app.services.weather.weather_service import WeatherTelemetryService
 
 logger = structlog.get_logger(__name__)
 
-
 def _parse_hhmm_optional(value: str | None) -> time | None:
     if value is None:
         return None
     parts = value.split(":")
     return time(hour=int(parts[0]), minute=int(parts[1]))
 
-
 def _ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
-
 
 def is_within_quiet_hours(
     *,
@@ -77,9 +74,7 @@ def is_within_quiet_hours(
         return quiet_start <= local_clock < quiet_end
     return local_clock >= quiet_start or local_clock < quiet_end
 
-
 MAX_LOCAL_DEDUP_KEYS = 2048
-
 
 class AlertDeduplicator:
     """Redis SET-NX deduplicator with resilient in-memory fallback for tests/local dev."""
@@ -137,9 +132,7 @@ class AlertDeduplicator:
         self._local_keys[dedup_key] = now_ts + max(ttl_seconds, 60)
         return True
 
-
 alert_deduplicator = AlertDeduplicator()
-
 
 def serialize_alert_rule(rule: AlertRule) -> AlertRuleSchema:
     std = (
@@ -170,7 +163,6 @@ def serialize_alert_rule(rule: AlertRule) -> AlertRuleSchema:
         created_at=_ensure_utc(rule.created_at),
     )
 
-
 def serialize_notification(notif: Notification) -> NotificationSchema:
     return NotificationSchema(
         id=notif.id,
@@ -193,7 +185,6 @@ def serialize_notification(notif: Notification) -> NotificationSchema:
             for d in notif.deliveries
         ],
     )
-
 
 class SmartAlertService:
     """Service managing user AQI alert rules, quiet hours, cooldowns, and notifications."""
@@ -307,6 +298,103 @@ class SmartAlertService:
         await self._session.commit()
         return count
 
+    @staticmethod
+    def _eval_threshold_or_severe(
+        *,
+        rule: AlertRule,
+        standard: AQIStandard,
+        std_label: str,
+        aqi: int,
+        category: str | None,
+        precaution: str,
+    ) -> tuple[bool, str, str, str, NotificationSeverityLiteral]:
+        severe_cutoff = 301 if standard == AQIStandard.INDIA_NAQI else 201
+        if rule.alert_type == "aqi_threshold":
+            cutoff = rule.threshold_value or 200
+            if aqi < cutoff:
+                return False, "clear", "", "", "info"
+            sig = f"threshold:{rule.city.lower()}:{standard.value}:{category}:{aqi}"
+            sev: NotificationSeverityLiteral = "critical" if aqi >= severe_cutoff else "warning"
+            return (
+                True,
+                sig,
+                f"{rule.city} {std_label} AQI {aqi} ({category}) Breached Threshold ({cutoff})",
+                f"{precaution} Standard: {std_label} (threshold >= {cutoff}).",
+                sev,
+            )
+
+        if aqi < severe_cutoff:
+            return False, "clear", "", "", "info"
+        sig = f"severe:{rule.city.lower()}:{standard.value}:{category}:{aqi}"
+        return (
+            True,
+            sig,
+            f"Severe Smog Episode in {rule.city}: {std_label} AQI {aqi} ({category})",
+            (
+                f"{precaution} Avoid outdoor cycling, jogging, or prolonged roadside "
+                "exposure; prioritize indoor HEPA filtration."
+            ),
+            "critical",
+        )
+
+    @staticmethod
+    def _eval_forecast_window_or_digest(
+        *,
+        rule: AlertRule,
+        standard: AQIStandard,
+        std_label: str,
+        aqi: int,
+        category: str | None,
+        is_stale: bool,
+        precaution: str,
+        max_forecast_aqi: int | None,
+        inversion_risk: bool,
+    ) -> tuple[bool, str, str, str, NotificationSeverityLiteral]:
+        atype = rule.alert_type
+        if atype == "forecast_deterioration":
+            cutoff = rule.threshold_value or (201 if standard == AQIStandard.INDIA_NAQI else 151)
+            if max_forecast_aqi is None or max_forecast_aqi < cutoff or aqi >= cutoff:
+                return False, "clear", "", "", "info"
+            sig = f"forecast:{rule.city.lower()}:{standard.value}:{max_forecast_aqi}"
+            return (
+                True,
+                sig,
+                f"Forecast Smog Deterioration Ahead for {rule.city}",
+                (
+                    f"Current {std_label} AQI is {aqi}, but 24h forecast projects up to "
+                    f"~{max_forecast_aqi}. Complete errands earlier and seal windows tonight."
+                ),
+                "warning",
+            )
+
+        if atype == "clean_air_window":
+            ceiling = rule.threshold_value or 100
+            if aqi > ceiling or inversion_risk or is_stale:
+                return False, "clear", "", "", "info"
+            sig = f"clean_window:{rule.city.lower()}:{standard.value}:{category}:{aqi}"
+            return (
+                True,
+                sig,
+                f"Cleaner Outdoor Air Window in {rule.city} ({std_label} AQI {aqi})",
+                (
+                    f"Verified {std_label} AQI is {aqi} ({category}) without thermal inversion "
+                    "stagnation—suitable for 15–20 minutes of cross-ventilation or errands."
+                ),
+                "info",
+            )
+
+        if atype == "daily_digest":
+            day_tag = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+            sig = f"digest:{rule.city.lower()}:{standard.value}:{day_tag}"
+            return (
+                True,
+                sig,
+                f"Daily AirWise Digest · {rule.city} ({std_label} AQI {aqi})",
+                f"Current status: {category} ({std_label} AQI {aqi}). {precaution}",
+                "info",
+            )
+        return False, "clear", "", "", "info"
+
     def _evaluate_single_condition(
         self,
         *,
@@ -322,106 +410,168 @@ class SmartAlertService:
     ) -> tuple[bool, str, str, str, NotificationSeverityLiteral]:
         """Return (triggered, state_signature, title, body, severity)."""
         std_label = "US EPA" if standard == AQIStandard.US_EPA else "India NAQI"
-        atype = rule.alert_type
-
-        if atype == "stale_telemetry_warning":
-            if not is_available or is_stale:
-                stale_tag = "down" if not is_available else "stale"
-                sig = f"stale:{rule.city.lower()}:{standard.value}:{stale_tag}"
-                return (
-                    True,
-                    sig,
-                    f"Stale or Unavailable Air Telemetry in {rule.city}",
-                    (
-                        f"Live verified {std_label} station data for {rule.city} is currently "
-                        "delayed or unavailable. Avoid assuming outdoor air is clean until fresh "
-                        "measurements resume."
-                    ),
-                    "info",
-                )
-            return False, "clear", "", "", "info"
+        if rule.alert_type == "stale_telemetry_warning":
+            if is_available and not is_stale:
+                return False, "clear", "", "", "info"
+            stale_tag = "down" if not is_available else "stale"
+            sig = f"stale:{rule.city.lower()}:{standard.value}:{stale_tag}"
+            return (
+                True,
+                sig,
+                f"Stale or Unavailable Air Telemetry in {rule.city}",
+                (
+                    f"Live verified {std_label} station data for {rule.city} is currently "
+                    "delayed or unavailable. Avoid assuming outdoor air is clean until fresh "
+                    "measurements resume."
+                ),
+                "info",
+            )
 
         if not is_available or aqi is None:
             return False, "unavailable", "", "", "info"
 
-        if atype == "aqi_threshold":
-            cutoff = rule.threshold_value or 200
-            if aqi >= cutoff:
-                sig = f"threshold:{rule.city.lower()}:{standard.value}:{category}:{aqi}"
-                sev: NotificationSeverityLiteral = (
-                    "critical"
-                    if aqi >= (301 if standard == AQIStandard.INDIA_NAQI else 201)
-                    else "warning"
-                )
-                return (
-                    True,
-                    sig,
-                    f"{rule.city} {std_label} AQI {aqi} ({category}) Breached Threshold ({cutoff})",
-                    f"{precaution} Standard: {std_label} (threshold >= {cutoff}).",
-                    sev,
-                )
-            return False, "clear", "", "", "info"
-
-        if atype == "severe_smog_episode":
-            severe_cutoff = 301 if standard == AQIStandard.INDIA_NAQI else 201
-            if aqi >= severe_cutoff:
-                sig = f"severe:{rule.city.lower()}:{standard.value}:{category}:{aqi}"
-                return (
-                    True,
-                    sig,
-                    f"Severe Smog Episode in {rule.city}: {std_label} AQI {aqi} ({category})",
-                    (
-                        f"{precaution} Avoid outdoor cycling, jogging, or prolonged roadside "
-                        "exposure; prioritize indoor HEPA filtration."
-                    ),
-                    "critical",
-                )
-            return False, "clear", "", "", "info"
-
-        if atype == "forecast_deterioration":
-            cutoff = rule.threshold_value or (201 if standard == AQIStandard.INDIA_NAQI else 151)
-            if max_forecast_aqi is not None and max_forecast_aqi >= cutoff and aqi < cutoff:
-                sig = f"forecast:{rule.city.lower()}:{standard.value}:{max_forecast_aqi}"
-                return (
-                    True,
-                    sig,
-                    f"Forecast Smog Deterioration Ahead for {rule.city}",
-                    (
-                        f"Current {std_label} AQI is {aqi}, but 24h forecast projects up to "
-                        f"~{max_forecast_aqi}. Complete errands earlier and seal windows tonight."
-                    ),
-                    "warning",
-                )
-            return False, "clear", "", "", "info"
-
-        if atype == "clean_air_window":
-            ceiling = rule.threshold_value or 100
-            if aqi <= ceiling and not inversion_risk and not is_stale:
-                sig = f"clean_window:{rule.city.lower()}:{standard.value}:{category}:{aqi}"
-                return (
-                    True,
-                    sig,
-                    f"Cleaner Outdoor Air Window in {rule.city} ({std_label} AQI {aqi})",
-                    (
-                        f"Verified {std_label} AQI is {aqi} ({category}) without thermal inversion "
-                        "stagnation—suitable for 15–20 minutes of cross-ventilation or errands."
-                    ),
-                    "info",
-                )
-            return False, "clear", "", "", "info"
-
-        if atype == "daily_digest":
-            day_tag = datetime.now(tz=UTC).strftime("%Y-%m-%d")
-            sig = f"digest:{rule.city.lower()}:{standard.value}:{day_tag}"
-            return (
-                True,
-                sig,
-                f"Daily AirWise Digest · {rule.city} ({std_label} AQI {aqi})",
-                f"Current status: {category} ({std_label} AQI {aqi}). {precaution}",
-                "info",
+        if rule.alert_type in {"aqi_threshold", "severe_smog_episode"}:
+            return self._eval_threshold_or_severe(
+                rule=rule,
+                standard=standard,
+                std_label=std_label,
+                aqi=aqi,
+                category=category,
+                precaution=precaution,
             )
 
-        return False, "clear", "", "", "info"
+        return self._eval_forecast_window_or_digest(
+            rule=rule,
+            standard=standard,
+            std_label=std_label,
+            aqi=aqi,
+            category=category,
+            is_stale=is_stale,
+            precaution=precaution,
+            max_forecast_aqi=max_forecast_aqi,
+            inversion_risk=inversion_risk,
+        )
+
+    @staticmethod
+    async def _resolve_rule_telemetry(
+        *,
+        rule: AlertRule,
+        std: AQIStandard,
+        aq_service: AirQualityTelemetryService,
+        wx_service: WeatherTelemetryService,
+        current_memo: dict[tuple[str, AQIStandard], CurrentAirQualitySchema | None],
+        forecast_max_memo: dict[tuple[str, AQIStandard], int | None],
+        inversion_memo: dict[str, bool],
+    ) -> tuple[CurrentAirQualitySchema | None, int | None, bool]:
+        city_key = rule.city.strip().lower()
+        aq_key = (city_key, std)
+        if aq_key not in current_memo:
+            try:
+                current_memo[aq_key] = await aq_service.get_current_air_quality(
+                    city=rule.city, standard=std
+                )
+            except ExternalProviderUnavailableError:
+                current_memo[aq_key] = None
+
+        max_fc_aqi: int | None = None
+        if rule.alert_type == "forecast_deterioration":
+            if aq_key not in forecast_max_memo:
+                try:
+                    fc = await aq_service.get_air_quality_forecast(
+                        city=rule.city, standard=std, hours=24
+                    )
+                    valid_fc = [p.aqi for p in fc.points if p.aqi is not None]
+                    forecast_max_memo[aq_key] = max(valid_fc) if valid_fc else None
+                except ExternalProviderUnavailableError:
+                    forecast_max_memo[aq_key] = None
+            max_fc_aqi = forecast_max_memo[aq_key]
+
+        inv_risk = False
+        if rule.alert_type == "clean_air_window":
+            if city_key not in inversion_memo:
+                try:
+                    wx = await wx_service.get_current_weather(city=rule.city)
+                    inversion_memo[city_key] = bool(wx.inversion_risk_flag)
+                except ExternalProviderUnavailableError:
+                    inversion_memo[city_key] = False
+            inv_risk = inversion_memo[city_key]
+
+        return current_memo[aq_key], max_fc_aqi, inv_risk
+
+    async def _dispatch_rule_channels(
+        self,
+        *,
+        rule: AlertRule,
+        user: User | None,
+        title: str,
+        body: str,
+        in_quiet: bool,
+        eval_now: datetime,
+    ) -> tuple[list[tuple[str, str, str | None, datetime | None]], int]:
+        deliveries: list[tuple[str, str, str | None, datetime | None]] = []
+        quiet_suppressed = 0
+        for ch in rule.channels:
+            if in_quiet and ch in {"email", "web_push", "in_app"}:
+                deliveries.append(
+                    (ch, "suppressed_quiet_hours", "in-app-inbox" if ch == "in_app" else None, None)
+                )
+                quiet_suppressed += 1
+            elif ch == "in_app":
+                deliveries.append((ch, "sent", "in-app-inbox", eval_now))
+            elif ch == "email":
+                deliveries.append(
+                    await self._deliver_email_channel(
+                        user=user, title=title, body=body, eval_now=eval_now
+                    )
+                )
+            elif ch == "web_push":
+                deliveries.append((ch, "unconfigured_channel", None, None))
+        return deliveries, quiet_suppressed
+
+    async def _deliver_email_channel(
+        self,
+        *,
+        user: User | None,
+        title: str,
+        body: str,
+        eval_now: datetime,
+    ) -> tuple[str, str, str | None, datetime | None]:
+        if user is None or not user.email:
+            return ("email", "failed", None, None)
+        try:
+            msg_id = await self._email.send_email(
+                TransactionalEmailMessage(
+                    to_email=user.email,
+                    subject=f"[AirWise Alert] {title}",
+                    text_body=(
+                        f"{body}\n\nManage or disable alerts anytime: "
+                        f"{self._settings.frontend_url}/dashboard/alerts"
+                    ),
+                )
+            )
+            return ("email", "sent", msg_id, eval_now)
+        except ExternalProviderUnavailableError:
+            return ("email", "failed", None, None)
+
+    @staticmethod
+    def _is_within_cooldown(rule: AlertRule, eval_now: datetime) -> bool:
+        if rule.last_triggered_at is None:
+            return False
+        elapsed = eval_now - _ensure_utc(rule.last_triggered_at)
+        return elapsed < timedelta(minutes=rule.cooldown_minutes)
+
+    async def _should_suppress_triggered_rule(
+        self, *, rule: AlertRule, state_sig: str, eval_now: datetime
+    ) -> tuple[bool, str]:
+        dedup_key = f"alert:{rule.id}:{state_sig}"
+        if rule.last_dedup_state == state_sig or self._is_within_cooldown(rule, eval_now):
+            return True, dedup_key
+        acquired = await alert_deduplicator.acquire(
+            settings=self._settings,
+            dedup_key=dedup_key,
+            ttl_seconds=rule.cooldown_minutes * 60,
+        )
+        return (not acquired), dedup_key
 
     async def evaluate_active_rules(
         self,
@@ -441,7 +591,6 @@ class SmartAlertService:
 
         aq_service = AirQualityTelemetryService(self._session, self._settings)
         wx_service = WeatherTelemetryService(self._session, self._settings)
-
         current_memo: dict[tuple[str, AQIStandard], CurrentAirQualitySchema | None] = {}
         forecast_max_memo: dict[tuple[str, AQIStandard], int | None] = {}
         inversion_memo: dict[str, bool] = {}
@@ -457,46 +606,22 @@ class SmartAlertService:
                 if rule.aqi_standard == AQIStandard.US_EPA.value
                 else AQIStandard.INDIA_NAQI
             )
-            city_key = rule.city.strip().lower()
-            aq_memo_key = (city_key, std)
-            if aq_memo_key not in current_memo:
-                try:
-                    current_memo[aq_memo_key] = await aq_service.get_current_air_quality(
-                        city=rule.city, standard=std
-                    )
-                except ExternalProviderUnavailableError:
-                    current_memo[aq_memo_key] = None
-            current = current_memo[aq_memo_key]
-
-            max_fc_aqi: int | None = None
-            if rule.alert_type == "forecast_deterioration":
-                if aq_memo_key not in forecast_max_memo:
-                    try:
-                        fc = await aq_service.get_air_quality_forecast(
-                            city=rule.city, standard=std, hours=24
-                        )
-                        valid_fc = [p.aqi for p in fc.points if p.aqi is not None]
-                        forecast_max_memo[aq_memo_key] = max(valid_fc) if valid_fc else None
-                    except ExternalProviderUnavailableError:
-                        forecast_max_memo[aq_memo_key] = None
-                max_fc_aqi = forecast_max_memo[aq_memo_key]
-
-            inv_risk = False
-            if rule.alert_type == "clean_air_window":
-                if city_key not in inversion_memo:
-                    try:
-                        wx = await wx_service.get_current_weather(city=rule.city)
-                        inversion_memo[city_key] = bool(wx.inversion_risk_flag)
-                    except ExternalProviderUnavailableError:
-                        inversion_memo[city_key] = False
-                inv_risk = inversion_memo[city_key]
+            current, max_fc_aqi, inv_risk = await self._resolve_rule_telemetry(
+                rule=rule,
+                std=std,
+                aq_service=aq_service,
+                wx_service=wx_service,
+                current_memo=current_memo,
+                forecast_max_memo=forecast_max_memo,
+                inversion_memo=inversion_memo,
+            )
 
             fired, state_sig, title, body, severity = self._evaluate_single_condition(
                 rule=rule,
                 standard=std,
                 aqi=current.aqi if current is not None else None,
                 category=current.category if current is not None else None,
-                is_available=(
+                is_available=bool(
                     current is not None
                     and current.status == "available"
                     and current.aqi is not None
@@ -516,70 +641,30 @@ class SmartAlertService:
                     rule.last_dedup_state = "clear"
                 continue
 
-            # 1. Anti-spam: unchanged AQI state never spams duplicate notifications
-            if rule.last_dedup_state == state_sig:
+            suppressed, dedup_key = await self._should_suppress_triggered_rule(
+                rule=rule, state_sig=state_sig, eval_now=eval_now
+            )
+            if suppressed:
                 suppressed_dedup_count += 1
                 continue
 
-            # 2. Cooldown window check across fluctuating breaches
-            if rule.last_triggered_at is not None:
-                elapsed = eval_now - _ensure_utc(rule.last_triggered_at)
-                if elapsed < timedelta(minutes=rule.cooldown_minutes):
-                    suppressed_dedup_count += 1
-                    continue
-
-            dedup_key = f"alert:{rule.id}:{state_sig}"
-            acquired = await alert_deduplicator.acquire(
-                settings=self._settings,
-                dedup_key=dedup_key,
-                ttl_seconds=rule.cooldown_minutes * 60,
-            )
-            if not acquired:
-                suppressed_dedup_count += 1
-                continue
-
-            in_quiet = is_within_quiet_hours(
-                utc_now=eval_now,
-                timezone_name=rule.timezone,
-                quiet_start=rule.quiet_hours_start,
-                quiet_end=rule.quiet_hours_end,
-            )
-
-            deliveries: list[tuple[str, str, str | None, datetime | None]] = []
             if rule.user_id not in users_memo:
                 users_memo[rule.user_id] = await self._identity_repo.get_user_by_id(rule.user_id)
-            user = users_memo[rule.user_id]
-            for ch in rule.channels:
-                if in_quiet and ch in {"email", "web_push"}:
-                    deliveries.append((ch, "suppressed_quiet_hours", None, None))
-                    suppressed_quiet_count += 1
-                elif ch == "in_app":
-                    status_str = "suppressed_quiet_hours" if in_quiet else "sent"
-                    if in_quiet:
-                        suppressed_quiet_count += 1
-                    deliveries.append(
-                        (ch, status_str, "in-app-inbox", None if in_quiet else eval_now)
-                    )
-                elif ch == "email":
-                    if user is not None and user.email:
-                        try:
-                            msg_id = await self._email.send_email(
-                                TransactionalEmailMessage(
-                                    to_email=user.email,
-                                    subject=f"[AirWise Alert] {title}",
-                                    text_body=(
-                                        f"{body}\n\nManage or disable alerts anytime: "
-                                        f"{self._settings.frontend_url}/dashboard/alerts"
-                                    ),
-                                )
-                            )
-                            deliveries.append((ch, "sent", msg_id, eval_now))
-                        except ExternalProviderUnavailableError:
-                            deliveries.append((ch, "failed", None, None))
-                    else:
-                        deliveries.append((ch, "failed", None, None))
-                elif ch == "web_push":
-                    deliveries.append((ch, "unconfigured_channel", None, None))
+
+            deliveries, quiet_cnt = await self._dispatch_rule_channels(
+                rule=rule,
+                user=users_memo[rule.user_id],
+                title=title,
+                body=body,
+                in_quiet=is_within_quiet_hours(
+                    utc_now=eval_now,
+                    timezone_name=rule.timezone,
+                    quiet_start=rule.quiet_hours_start,
+                    quiet_end=rule.quiet_hours_end,
+                ),
+                eval_now=eval_now,
+            )
+            suppressed_quiet_count += quiet_cnt
 
             await self._repo.create_notification_with_deliveries(
                 user_id=rule.user_id,

@@ -23,7 +23,6 @@ from app.repositories.alerts_community_repository import AlertsCommunityReposito
 from app.repositories.assistant_repository import AssistantRepository
 from app.repositories.planning_repository import PlanningRepository
 
-
 class IdentityRepository:
     """Async SQLAlchemy 2.x repository enforcing strict object-level user_id scoping."""
 

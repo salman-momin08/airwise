@@ -26,6 +26,87 @@ interface AirQualityTrendsChartProps {
   onRetry: () => void;
 }
 
+interface TrendChartPoint {
+  label: string;
+  aqi: number | null;
+  pm25: number | null;
+}
+
+function formatTrendPointLabel(timestamp: string, period: HistoryPeriod): string {
+  const dt = new Date(timestamp);
+  return period === "24h"
+    ? dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : dt.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function computeAqiRange(series: HistoricalAirQuality["series"]): {
+  minAqi: number | null;
+  maxAqi: number | null;
+} {
+  const validAqis = series
+    .map((s) => s.aqi)
+    .filter((val): val is number => val !== null);
+  if (validAqis.length === 0) {
+    return { minAqi: null, maxAqi: null };
+  }
+  return { minAqi: Math.min(...validAqis), maxAqi: Math.max(...validAqis) };
+}
+
+function TrendChartCanvas({
+  chartData,
+  stdLabel,
+  period,
+  minAqi,
+  maxAqi,
+}: {
+  chartData: TrendChartPoint[];
+  stdLabel: string;
+  period: HistoryPeriod;
+  minAqi: number | null;
+  maxAqi: number | null;
+}) {
+  const srSummary =
+    minAqi !== null && maxAqi !== null
+      ? `${stdLabel} ${period} trend series with ${chartData.length} observations ranging from AQI ${minAqi} to ${maxAqi}. Missing intervals are left unplotted.`
+      : `${stdLabel} ${period} trend series with ${chartData.length} time intervals; AQI sub-index unavailable.`;
+
+  return (
+    <div
+      className="mt-6 h-72 w-full"
+      role="region"
+      aria-label={`${stdLabel} ${period} trend chart`}
+    >
+      <p className="sr-only">{srSummary}</p>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#DCE7E5" />
+          <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+          <YAxis tick={{ fontSize: 11 }} />
+          <Tooltip />
+          <Area
+            type="monotone"
+            dataKey="aqi"
+            name={stdLabel}
+            stroke="#087F8C"
+            fill="#D5F2E3"
+            strokeWidth={2}
+            connectNulls={false}
+          />
+          <Area
+            type="monotone"
+            dataKey="pm25"
+            name="PM2.5 (µg/m³)"
+            stroke="#2D8A67"
+            fill="transparent"
+            strokeWidth={2}
+            connectNulls={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export function AirQualityTrendsChart({
   history,
   period,
@@ -34,27 +115,18 @@ export function AirQualityTrendsChart({
   isError,
   onRetry,
 }: AirQualityTrendsChartProps) {
-  const stdLabel =
-    history?.standard === "us_epa" ? "US EPA AQI" : "India NAQI";
-
-  const chartData = (history?.series ?? []).map((pt) => {
-    const dt = new Date(pt.timestamp);
-    const label =
-      period === "24h"
-        ? dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        : dt.toLocaleDateString([], { month: "short", day: "numeric" });
-    return {
-      label,
-      aqi: pt.aqi,
-      pm25: pt.pm25_ug_m3,
-    };
-  });
-
-  const validAqis = (history?.series ?? [])
-    .map((s) => s.aqi)
-    .filter((val): val is number => val !== null);
-  const minAqi = validAqis.length > 0 ? Math.min(...validAqis) : null;
-  const maxAqi = validAqis.length > 0 ? Math.max(...validAqis) : null;
+  const stdLabel = history?.standard === "us_epa" ? "US EPA AQI" : "India NAQI";
+  const series = history?.series ?? [];
+  const chartData: TrendChartPoint[] = series.map((pt) => ({
+    label: formatTrendPointLabel(pt.timestamp, period),
+    aqi: pt.aqi,
+    pm25: pt.pm25_ug_m3,
+  }));
+  const { minAqi, maxAqi } = computeAqiRange(series);
+  const subtitle =
+    minAqi !== null && maxAqi !== null
+      ? `Range over ${period}: AQI ${minAqi} – ${maxAqi} (PM2.5 µg/m³ overlaid)`
+      : "Time-series pollutant history";
 
   return (
     <section className="rounded-card border border-border bg-surface p-6 shadow-sm">
@@ -63,11 +135,7 @@ export function AirQualityTrendsChart({
           <h2 className="text-lg font-semibold text-text-primary">
             Historical Air Quality Trends ({stdLabel})
           </h2>
-          <p className="text-xs text-text-secondary">
-            {minAqi !== null && maxAqi !== null
-              ? `Range over ${period}: AQI ${minAqi} – ${maxAqi} (PM2.5 µg/m³ overlaid)`
-              : "Time-series pollutant history"}
-          </p>
+          <p className="text-xs text-text-secondary">{subtitle}</p>
         </div>
 
         <div role="group" aria-label="Select trend window" className="flex gap-2">
@@ -115,39 +183,13 @@ export function AirQualityTrendsChart({
           No verified historical observations available for this time range.
         </p>
       ) : (
-        <div className="mt-6 h-72 w-full" role="region" aria-label={`${stdLabel} ${period} trend chart`}>
-          <p className="sr-only">
-            {minAqi !== null && maxAqi !== null
-              ? `${stdLabel} ${period} trend series with ${chartData.length} observations ranging from AQI ${minAqi} to ${maxAqi}. Missing intervals are left unplotted.`
-              : `${stdLabel} ${period} trend series with ${chartData.length} time intervals; AQI sub-index unavailable.`}
-          </p>
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#DCE7E5" />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Area
-                type="monotone"
-                dataKey="aqi"
-                name={stdLabel}
-                stroke="#087F8C"
-                fill="#D5F2E3"
-                strokeWidth={2}
-                connectNulls={false}
-              />
-              <Area
-                type="monotone"
-                dataKey="pm25"
-                name="PM2.5 (µg/m³)"
-                stroke="#2D8A67"
-                fill="transparent"
-                strokeWidth={2}
-                connectNulls={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        <TrendChartCanvas
+          chartData={chartData}
+          stdLabel={stdLabel}
+          period={period}
+          minAqi={minAqi}
+          maxAqi={maxAqi}
+        />
       )}
     </section>
   );

@@ -20,13 +20,11 @@ from app.models.assistant import AIGenerationMetadata, ChatConversation, ChatMes
 from app.schemas.assistant import ToolPlan
 from tests.ai_evaluations.test_assistant_safety import StubGateway, evidence
 
-
 def headers(client: AsyncClient) -> dict[str, str]:
     return {
         "X-CSRF-Token": client.cookies.get("airwise_csrf", ""),
         "Origin": "http://localhost:3000",
     }
-
 
 async def register(client: AsyncClient, email: str) -> None:
     response = await client.post(
@@ -39,7 +37,6 @@ async def register(client: AsyncClient, email: str) -> None:
     )
     assert response.status_code == 201
 
-
 @pytest.fixture
 def stub_gateway(monkeypatch: pytest.MonkeyPatch) -> StubGateway:
     gateway = StubGateway()
@@ -49,7 +46,6 @@ def stub_gateway(monkeypatch: pytest.MonkeyPatch) -> StubGateway:
 
     monkeypatch.setattr(assistant_service, "GeminiGateway", factory)
     return gateway
-
 
 async def test_chat_auth_consent_csrf_and_cross_user_ownership(
     api_client: AsyncClient,
@@ -93,7 +89,6 @@ async def test_chat_auth_consent_csrf_and_cross_user_ownership(
         assert denied.status_code == 404
     assert (await api_client.get("/api/v1/assistant/conversations")).json()["data"] == []
 
-
 async def test_ingested_evidence_to_generated_response_and_saved_citation(
     api_client: AsyncClient,
     db_engine: AsyncEngine,
@@ -131,7 +126,6 @@ async def test_ingested_evidence_to_generated_response_and_saved_citation(
         assert metadata is not None
         assert metadata.request_id == response.json()["meta"]["request_id"]
         assert "retrieve_environmental_guidelines" in metadata.tools_invoked
-
 
 async def test_sse_frames_are_typed_and_persisted_history_is_exportable_and_erasable(
     api_client: AsyncClient,
@@ -172,7 +166,6 @@ async def test_sse_frames_are_typed_and_persisted_history_is_exportable_and_eras
         for model in (ChatConversation, ChatMessage, AIGenerationMetadata):
             assert await session.scalar(select(func.count()).select_from(model)) == 0
 
-
 async def test_history_opt_out_does_not_store_or_reuse_conversations(
     api_client: AsyncClient,
     db_engine: AsyncEngine,
@@ -195,7 +188,6 @@ async def test_history_opt_out_does_not_store_or_reuse_conversations(
     async with AsyncSession(db_engine) as session:
         assert await session.scalar(select(func.count()).select_from(ChatMessage)) == 0
 
-
 async def test_account_erasure_removes_chat_data(
     api_client: AsyncClient,
     db_engine: AsyncEngine,
@@ -213,7 +205,6 @@ async def test_account_erasure_removes_chat_data(
     async with AsyncSession(db_engine) as session:
         assert await session.scalar(select(func.count()).select_from(ChatConversation)) == 0
         assert await session.scalar(select(func.count()).select_from(AIGenerationMetadata)) == 0
-
 
 async def test_request_rejects_unbounded_or_cross_user_tool_arguments(
     api_client: AsyncClient,
@@ -238,7 +229,6 @@ async def test_request_rejects_unbounded_or_cross_user_tool_arguments(
     assert response.status_code == 422
     assert not stub_gateway.prompts
 
-
 async def test_sse_quota_failure_is_a_terminal_error_not_a_successful_fallback(
     api_client: AsyncClient,
     stub_gateway: StubGateway,
@@ -261,7 +251,6 @@ async def test_sse_quota_failure_is_a_terminal_error_not_a_successful_fallback(
     assert "AI_DAILY_BUDGET_EXCEEDED" in response.text
     assert "event: complete" not in response.text
     assert "event: delta" not in response.text
-
 
 async def test_sse_disconnect_cancels_the_provider_and_does_not_save_partial_history(
     api_client: AsyncClient,

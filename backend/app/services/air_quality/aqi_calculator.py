@@ -4,11 +4,9 @@ import math
 from dataclasses import dataclass
 from enum import StrEnum
 
-
 class AQIStandard(StrEnum):
     US_EPA = "us_epa"
     INDIA_NAQI = "india_naqi"
-
 
 class PollutantCode(StrEnum):
     PM25 = "pm25"
@@ -18,7 +16,6 @@ class PollutantCode(StrEnum):
     CO = "co"
     O3 = "o3"
 
-
 @dataclass(frozen=True)
 class BreakpointBand:
     bp_low: float
@@ -27,7 +24,6 @@ class BreakpointBand:
     index_high: int
     category: str
 
-
 @dataclass(frozen=True)
 class SubIndexResult:
     pollutant: PollutantCode
@@ -35,7 +31,6 @@ class SubIndexResult:
     category: str
     truncated_concentration: float
     unit: str
-
 
 @dataclass(frozen=True)
 class AQICalculationResult:
@@ -46,7 +41,6 @@ class AQICalculationResult:
     dominant_pollutant: PollutantCode | None
     sub_indices: dict[PollutantCode, SubIndexResult]
     unavailable_reason: str | None = None
-
 
 # India National AQI (CPCB) breakpoints:
 # 24-hr for PM2.5, PM10, NO2, SO2 (ug/m3); 8-hr for CO (mg/m3), O3 (ug/m3)
@@ -204,6 +198,47 @@ MOLECULAR_WEIGHTS_G_MOL: dict[PollutantCode, float] = {
     PollutantCode.O3: 48.00,
 }
 
+def _convert_to_india_naqi_gas_unit(
+    pollutant: PollutantCode, concentration: float, normalized_unit: str, mw: float
+) -> tuple[float, str] | None:
+    if pollutant == PollutantCode.CO:
+        co_factors: dict[str, float] = {
+            "mg/m3": 1.0,
+            "ug/m3": 1e-3,
+            "ppm": mw / MOLAR_VOLUME_25C_1ATM,
+            "ppb": mw / (MOLAR_VOLUME_25C_1ATM * 1000.0),
+        }
+        factor = co_factors.get(normalized_unit)
+        return (concentration * factor, "mg/m3") if factor is not None else None
+
+    ug_factors: dict[str, float] = {
+        "ug/m3": 1.0,
+        "ppb": mw / MOLAR_VOLUME_25C_1ATM,
+        "ppm": (1000.0 * mw) / MOLAR_VOLUME_25C_1ATM,
+    }
+    factor = ug_factors.get(normalized_unit)
+    return (concentration * factor, "ug/m3") if factor is not None else None
+
+def _convert_to_us_epa_gas_unit(
+    pollutant: PollutantCode, concentration: float, normalized_unit: str, mw: float
+) -> tuple[float, str] | None:
+    if pollutant in {PollutantCode.O3, PollutantCode.CO}:
+        ppm_factors: dict[str, float] = {
+            "ppm": 1.0,
+            "ppb": 1e-3,
+            "mg/m3": MOLAR_VOLUME_25C_1ATM / mw,
+            "ug/m3": MOLAR_VOLUME_25C_1ATM / (mw * 1000.0),
+        }
+        factor = ppm_factors.get(normalized_unit)
+        return (concentration * factor, "ppm") if factor is not None else None
+
+    ppb_factors: dict[str, float] = {
+        "ppb": 1.0,
+        "ppm": 1000.0,
+        "ug/m3": MOLAR_VOLUME_25C_1ATM / mw,
+    }
+    factor = ppb_factors.get(normalized_unit)
+    return (concentration * factor, "ppb") if factor is not None else None
 
 def convert_gas_unit_for_standard(
     pollutant: PollutantCode,
@@ -223,54 +258,15 @@ def convert_gas_unit_for_standard(
     mw = MOLECULAR_WEIGHTS_G_MOL.get(pollutant)
     if mw is None:
         return None
-
     if standard == AQIStandard.INDIA_NAQI:
-        if pollutant == PollutantCode.CO:
-            if normalized_unit == "mg/m3":
-                return (concentration, "mg/m3")
-            if normalized_unit == "ug/m3":
-                return (concentration / 1000.0, "mg/m3")
-            if normalized_unit == "ppm":
-                return ((concentration * mw) / MOLAR_VOLUME_25C_1ATM, "mg/m3")
-            if normalized_unit == "ppb":
-                return ((concentration * mw) / (MOLAR_VOLUME_25C_1ATM * 1000.0), "mg/m3")
-            return None
-
-        if normalized_unit == "ug/m3":
-            return (concentration, "ug/m3")
-        if normalized_unit == "ppb":
-            return ((concentration * mw) / MOLAR_VOLUME_25C_1ATM, "ug/m3")
-        if normalized_unit == "ppm":
-            return ((concentration * 1000.0 * mw) / MOLAR_VOLUME_25C_1ATM, "ug/m3")
-        return None
-
-    # US EPA gaseous targets: O3 & CO in ppm; NO2 & SO2 in ppb
-    if pollutant in {PollutantCode.O3, PollutantCode.CO}:
-        if normalized_unit == "ppm":
-            return (concentration, "ppm")
-        if normalized_unit == "ppb":
-            return (concentration / 1000.0, "ppm")
-        if normalized_unit == "mg/m3":
-            return ((concentration * MOLAR_VOLUME_25C_1ATM) / mw, "ppm")
-        if normalized_unit == "ug/m3":
-            return ((concentration * MOLAR_VOLUME_25C_1ATM) / (mw * 1000.0), "ppm")
-        return None
-
-    if normalized_unit == "ppb":
-        return (concentration, "ppb")
-    if normalized_unit == "ppm":
-        return (concentration * 1000.0, "ppb")
-    if normalized_unit == "ug/m3":
-        return ((concentration * MOLAR_VOLUME_25C_1ATM) / mw, "ppb")
-    return None
-
+        return _convert_to_india_naqi_gas_unit(pollutant, concentration, normalized_unit, mw)
+    return _convert_to_us_epa_gas_unit(pollutant, concentration, normalized_unit, mw)
 
 def _truncate_decimals(value: float, decimals: int) -> float:
     if decimals <= 0:
         return float(math.floor(value))
     factor = float(10**decimals)
     return float(math.floor(value * factor + 1e-9) / factor)
-
 
 def _interpolate_band(conc: float, bands: tuple[BreakpointBand, ...]) -> tuple[int, str]:
     for band in bands:
@@ -286,6 +282,48 @@ def _interpolate_band(conc: float, bands: tuple[BreakpointBand, ...]) -> tuple[i
         return bands[-1].index_high, bands[-1].category
     return bands[0].index_low, bands[0].category
 
+def _compute_india_naqi_sub_indices(
+    measurements: dict[PollutantCode, tuple[float, str]],
+) -> dict[PollutantCode, SubIndexResult]:
+    sub_indices: dict[PollutantCode, SubIndexResult] = {}
+    for pollutant, (value, unit) in measurements.items():
+        if value < 0 or pollutant not in INDIA_NAQI_BREAKPOINTS:
+            continue
+        expected_unit, bands = INDIA_NAQI_BREAKPOINTS[pollutant]
+        if unit != expected_unit:
+            continue
+        decimals = 1 if pollutant == PollutantCode.CO else 0
+        truncated = round(value, decimals) if decimals == 1 else float(round(value))
+        idx, cat = _interpolate_band(truncated, bands)
+        sub_indices[pollutant] = SubIndexResult(
+            pollutant=pollutant,
+            sub_index=idx,
+            category=cat,
+            truncated_concentration=truncated,
+            unit=unit,
+        )
+    return sub_indices
+
+def _compute_us_epa_sub_indices(
+    measurements: dict[PollutantCode, tuple[float, str]],
+) -> dict[PollutantCode, SubIndexResult]:
+    sub_indices: dict[PollutantCode, SubIndexResult] = {}
+    for pollutant, (value, unit) in measurements.items():
+        if value < 0 or pollutant not in US_EPA_BREAKPOINTS:
+            continue
+        expected_unit, decimals, bands = US_EPA_BREAKPOINTS[pollutant]
+        if unit != expected_unit:
+            continue
+        truncated = _truncate_decimals(value, decimals)
+        idx, cat = _interpolate_band(truncated, bands)
+        sub_indices[pollutant] = SubIndexResult(
+            pollutant=pollutant,
+            sub_index=idx,
+            category=cat,
+            truncated_concentration=truncated,
+            unit=unit,
+        )
+    return sub_indices
 
 def calculate_aqi(
     standard: AQIStandard,
@@ -296,26 +334,8 @@ def calculate_aqi(
     `measurements` maps PollutantCode -> (concentration, unit).
     Never mixes breakpoints or units across standards.
     """
-    sub_indices: dict[PollutantCode, SubIndexResult] = {}
-
     if standard == AQIStandard.INDIA_NAQI:
-        for pollutant, (value, unit) in measurements.items():
-            if value < 0 or pollutant not in INDIA_NAQI_BREAKPOINTS:
-                continue
-            expected_unit, bands = INDIA_NAQI_BREAKPOINTS[pollutant]
-            if unit != expected_unit:
-                continue
-            decimals = 1 if pollutant == PollutantCode.CO else 0
-            truncated = round(value, decimals) if decimals == 1 else float(round(value))
-            idx, cat = _interpolate_band(truncated, bands)
-            sub_indices[pollutant] = SubIndexResult(
-                pollutant=pollutant,
-                sub_index=idx,
-                category=cat,
-                truncated_concentration=truncated,
-                unit=unit,
-            )
-
+        sub_indices = _compute_india_naqi_sub_indices(measurements)
         has_pm = PollutantCode.PM25 in sub_indices or PollutantCode.PM10 in sub_indices
         if len(sub_indices) < 3 or not has_pm:
             return AQICalculationResult(
@@ -330,24 +350,8 @@ def calculate_aqi(
                     "including PM2.5 or PM10."
                 ),
             )
-
-    elif standard == AQIStandard.US_EPA:
-        for pollutant, (value, unit) in measurements.items():
-            if value < 0 or pollutant not in US_EPA_BREAKPOINTS:
-                continue
-            expected_unit, decimals, bands = US_EPA_BREAKPOINTS[pollutant]
-            if unit != expected_unit:
-                continue
-            truncated = _truncate_decimals(value, decimals)
-            idx, cat = _interpolate_band(truncated, bands)
-            sub_indices[pollutant] = SubIndexResult(
-                pollutant=pollutant,
-                sub_index=idx,
-                category=cat,
-                truncated_concentration=truncated,
-                unit=unit,
-            )
-
+    else:
+        sub_indices = _compute_us_epa_sub_indices(measurements)
         if not sub_indices:
             return AQICalculationResult(
                 standard=standard,

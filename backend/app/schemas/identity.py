@@ -24,7 +24,6 @@ CommuteModeLiteral = Literal[
     "work_from_home",
 ]
 
-
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=10, max_length=128)
@@ -50,15 +49,12 @@ class RegisterRequest(BaseModel):
             raise ValueError("Display name must be at least 2 characters.")
         return cleaned
 
-
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=128)
 
-
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
-
 
 class ResetPasswordRequest(BaseModel):
     token: str = Field(min_length=16, max_length=256)
@@ -73,10 +69,8 @@ class ResetPasswordRequest(BaseModel):
             raise ValueError("Password must include at least one letter and one number.")
         return value
 
-
 class VerifyEmailRequest(BaseModel):
     token: str = Field(min_length=16, max_length=256)
-
 
 class AuthPrincipalData(BaseModel):
     user_id: str | None
@@ -87,7 +81,6 @@ class AuthPrincipalData(BaseModel):
     preferred_aqi_standard: AQIStandardLiteral = "india_naqi"
     session_id: str | None = None
 
-
 class SessionItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -97,12 +90,10 @@ class SessionItem(BaseModel):
     expires_at: datetime
     is_current: bool = False
 
-
 class TimeWindowSchedule(BaseModel):
     start_time: str = Field(pattern=r"^\d{2}:\d{2}$")
     end_time: str = Field(pattern=r"^\d{2}:\d{2}$")
     days: list[str] = Field(default_factory=list, max_length=7)
-
 
 class UserProfileData(BaseModel):
     display_name: str
@@ -110,7 +101,6 @@ class UserProfileData(BaseModel):
     preferred_aqi_standard: AQIStandardLiteral
     timezone: str
     updated_at: datetime
-
 
 class UserPreferencesData(BaseModel):
     age_category: AgeCategoryLiteral | None = None
@@ -127,7 +117,6 @@ class UserPreferencesData(BaseModel):
     save_chat_history: bool = True
     consent_updated_at: datetime | None = None
 
-
 class UserMeData(BaseModel):
     id: UUID
     email: str
@@ -137,13 +126,11 @@ class UserMeData(BaseModel):
     profile: UserProfileData
     preferences: UserPreferencesData
 
-
 class UpdateUserProfileInput(BaseModel):
     display_name: str | None = Field(default=None, min_length=2, max_length=120)
     locale: str | None = Field(default=None, min_length=2, max_length=16)
     preferred_aqi_standard: AQIStandardLiteral | None = None
     timezone: str | None = Field(default=None, min_length=2, max_length=64)
-
 
 class UpdateUserPreferencesInput(BaseModel):
     age_category: AgeCategoryLiteral | None = None
@@ -159,11 +146,9 @@ class UpdateUserPreferencesInput(BaseModel):
     sustainability_goals: list[str] | None = Field(default=None, max_length=10)
     save_chat_history: bool | None = None
 
-
 class UpdateUserMeRequest(BaseModel):
     profile: UpdateUserProfileInput | None = None
     preferences: UpdateUserPreferencesInput | None = None
-
 
 class SavedLocationCreateRequest(BaseModel):
     label: LocationLabelLiteral = "home"
@@ -197,7 +182,6 @@ class SavedLocationCreateRequest(BaseModel):
             self.longitude = None
         return self
 
-
 class SavedLocationUpdateRequest(BaseModel):
     label: LocationLabelLiteral | None = None
     display_name: str | None = Field(default=None, min_length=2, max_length=160)
@@ -222,7 +206,6 @@ class SavedLocationUpdateRequest(BaseModel):
             raise ValueError("Both latitude and longitude must be provided together.")
         return self
 
-
 class SavedLocationData(BaseModel):
     id: UUID
     label: LocationLabelLiteral
@@ -238,14 +221,12 @@ class SavedLocationData(BaseModel):
     is_primary: bool
     created_at: datetime
 
-
 class GazetteerLocationMatch(BaseModel):
     city: str
     state_region: str
     country_code: str
     postal_prefix: str
     timezone: str
-
 
 class AccountExportData(BaseModel):
     exported_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))

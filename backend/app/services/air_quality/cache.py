@@ -22,13 +22,11 @@ DEFAULT_FRESH_TTL_SECONDS = 900
 DEFAULT_STALE_BACKUP_TTL_SECONDS = 12 * 3600
 MAX_LOCAL_CACHE_ENTRIES = 512
 
-
 @dataclass
 class _MemoryCacheItem:
     raw_json: str
     fresh_until: float
     stale_until: float
-
 
 class StaleAwareTelemetryCache:
     """Redis-backed telemetry cache with explicit stale-backup retention.
@@ -172,6 +170,5 @@ class StaleAwareTelemetryCache:
         entry = self._memory.get(key)
         if entry is not None:
             entry.fresh_until = time.monotonic() - 1.0
-
 
 telemetry_cache = StaleAwareTelemetryCache()

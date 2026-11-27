@@ -28,7 +28,6 @@ REFERENCE_TRANSPORT_EMISSION_FACTORS: tuple[dict[str, object], ...] = tuple(
     if spec.category == "transport"
 )
 
-
 STARTER_NEIGHBORHOOD_COMMUNITIES: tuple[dict[str, str], ...] = (
     {
         "slug": "delhi-metro-clean-commute",
@@ -49,7 +48,6 @@ STARTER_NEIGHBORHOOD_COMMUNITIES: tuple[dict[str, str], ...] = (
         "challenge_type": "public_transit_challenge",
     },
 )
-
 
 async def seed_emission_factors() -> int:
     now = datetime.now(tz=UTC)
@@ -125,11 +123,9 @@ async def seed_emission_factors() -> int:
         await session.commit()
     return len(REFERENCE_EMISSION_FACTORS)
 
-
 def main() -> None:
     seeded = asyncio.run(seed_emission_factors())
     print(f"Seeded {seeded} verified reference emission factors.")
-
 
 if __name__ == "__main__":
     main()

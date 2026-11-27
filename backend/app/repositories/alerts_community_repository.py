@@ -20,7 +20,6 @@ from app.models.community_alerts import (
 )
 from app.models.identity import User, UserProfile
 
-
 class AlertsCommunityRepository:
     """Async SQLAlchemy 2.x repository enforcing strict user scoping & community privacy."""
 

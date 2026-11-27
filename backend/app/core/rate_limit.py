@@ -15,7 +15,6 @@ from app.core.redis_client import create_async_redis_client
 logger = structlog.get_logger(__name__)
 MAX_LOCAL_RATE_WINDOWS = 2048
 
-
 class SlidingWindowRateLimiter:
     """Redis-backed sliding-window rate limiter with resilient in-memory fallback."""
 
@@ -107,6 +106,5 @@ class SlidingWindowRateLimiter:
         if len(bucket) >= limit:
             raise RateLimitExceededError()
         bucket.append(now)
-
 
 rate_limiter = SlidingWindowRateLimiter()

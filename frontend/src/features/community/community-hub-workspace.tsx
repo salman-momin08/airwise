@@ -1,10 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { WorkspaceSkeleton } from "@/components/ui/workspace-state";
+import {
+  CommunityDetailCard,
+  CommunityDirectorySidebar,
+  CommunityInitiativesCard,
+  ModeratorCreateGroupForm,
+} from "@/features/community/community-hub-sections";
 import { alertsCommunityApi } from "@/lib/api/alerts-community";
 import { identityApi } from "@/lib/api/identity";
 import {
@@ -17,27 +23,144 @@ import {
 } from "@/lib/validation/alerts-community";
 import type { CommunityInitiative } from "@/types/alerts-community";
 
-export function CommunityHubWorkspace() {
-  const queryClient = useQueryClient();
-  const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(null);
-  const [publicNameConsent, setPublicNameConsent] = useState(false);
-  const [activeInitiativeId, setActiveInitiativeId] = useState<string | null>(null);
-  const [showReportForm, setShowReportForm] = useState(false);
-  const [banner, setBanner] = useState<string | null>(null);
+function resolveActiveCommunityId(
+  selectedCommunityId: string | null,
+  firstCommunityId: string | undefined,
+): string | null {
+  if (selectedCommunityId) return selectedCommunityId;
+  return firstCommunityId ?? null;
+}
 
+function canModerateCommunities(role: string | undefined): boolean {
+  return role === "moderator" || role === "admin";
+}
+
+function isRegisteredRole(userId: string | null | undefined, role: string | undefined): boolean {
+  return Boolean(userId && role !== "guest");
+}
+
+function CommunityMainGrid({
+  communities,
+  activeCommunityId,
+  detail,
+  initiatives,
+  isAuthenticated,
+  publicNameConsent,
+  showReportForm,
+  activeInitiativeId,
+  joinPending,
+  leavePending,
+  reportPending,
+  participatePending,
+  reportForm,
+  participationForm,
+  onSelectCommunity,
+  onToggleReportForm,
+  onConsentChange,
+  onJoinOrUpdate,
+  onLeave,
+  onSubmitReport,
+  onToggleInitiative,
+  onSubmitParticipation,
+}: {
+  communities: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    city: string;
+    coarse_boundary_label: string;
+    description: string;
+    member_count: number;
+    active_initiatives_count: number;
+    is_current_user_member: boolean;
+    current_user_public_display_consent: boolean;
+    created_at: string;
+  }>;
+  activeCommunityId: string | null;
+  detail: Parameters<typeof CommunityDetailCard>[0]["detail"] | undefined;
+  initiatives: CommunityInitiative[];
+  isAuthenticated: boolean;
+  publicNameConsent: boolean;
+  showReportForm: boolean;
+  activeInitiativeId: string | null;
+  joinPending: boolean;
+  leavePending: boolean;
+  reportPending: boolean;
+  participatePending: boolean;
+  reportForm: ReturnType<typeof useForm<CreateAbuseReportFormValues>>;
+  participationForm: ReturnType<typeof useForm<LogCommunityParticipationFormValues>>;
+  onSelectCommunity: (id: string) => void;
+  onToggleReportForm: () => void;
+  onConsentChange: (checked: boolean) => void;
+  onJoinOrUpdate: () => void;
+  onLeave: () => void;
+  onSubmitReport: (vals: CreateAbuseReportFormValues) => void;
+  onToggleInitiative: (id: string) => void;
+  onSubmitParticipation: (vals: LogCommunityParticipationFormValues) => void;
+}) {
+  if (communities.length === 0) {
+    return (
+      <div className="rounded-card border border-border bg-surface p-6 text-sm text-text-secondary">
+        No neighborhood groups have been published yet. AirWise never displays synthetic community
+        groups or fabricated participation counts.
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-6 lg:grid-cols-3">
+      <CommunityDirectorySidebar
+        communities={communities}
+        activeCommunityId={activeCommunityId}
+        onSelect={onSelectCommunity}
+      />
+
+      <section aria-label="Selected community dashboard" className="space-y-5 lg:col-span-2">
+        {detail ? (
+          <CommunityDetailCard
+            detail={detail}
+            isAuthenticated={isAuthenticated}
+            publicNameConsent={publicNameConsent}
+            showReportForm={showReportForm}
+            joinPending={joinPending}
+            leavePending={leavePending}
+            reportPending={reportPending}
+            reportForm={reportForm}
+            onToggleReportForm={onToggleReportForm}
+            onConsentChange={onConsentChange}
+            onJoinOrUpdate={onJoinOrUpdate}
+            onLeave={onLeave}
+            onSubmitReport={onSubmitReport}
+          />
+        ) : null}
+
+        <CommunityInitiativesCard
+          initiatives={initiatives}
+          isCurrentMember={Boolean(detail?.is_current_user_member)}
+          activeInitiativeId={activeInitiativeId}
+          participationForm={participationForm}
+          participatePending={participatePending}
+          onToggleInitiative={onToggleInitiative}
+          onSubmitParticipation={onSubmitParticipation}
+        />
+      </section>
+    </div>
+  );
+}
+
+function useCommunitySelectionQueries(selectedCommunityId: string | null) {
   const principalQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => identityApi.getMePrincipal(),
   });
-
   const communitiesQuery = useQuery({
     queryKey: ["communities", "list"],
     queryFn: () => alertsCommunityApi.listCommunities(),
   });
-
-  const communities = communitiesQuery.data?.data ?? [];
-  const activeCommunityId = selectedCommunityId ?? communities[0]?.id ?? null;
-
+  const communities = communitiesQuery.data ? communitiesQuery.data.data : [];
+  const activeCommunityId = resolveActiveCommunityId(
+    selectedCommunityId,
+    communities[0]?.id,
+  );
   const detailQuery = useQuery({
     queryKey: ["communities", "detail", activeCommunityId],
     queryFn: () => {
@@ -46,7 +169,6 @@ export function CommunityHubWorkspace() {
     },
     enabled: activeCommunityId !== null,
   });
-
   const initiativesQuery = useQuery({
     queryKey: ["communities", "initiatives", activeCommunityId],
     queryFn: () => {
@@ -55,12 +177,34 @@ export function CommunityHubWorkspace() {
     },
     enabled: activeCommunityId !== null,
   });
+  const principal = principalQuery.data ? principalQuery.data.data : undefined;
+  return {
+    isLoading: communitiesQuery.isLoading,
+    communities,
+    activeCommunityId,
+    detail: detailQuery.data ? detailQuery.data.data : undefined,
+    initiatives: initiativesQuery.data ? initiativesQuery.data.data : [],
+    isAuthenticated: isRegisteredRole(principal?.user_id, principal?.role),
+    isModeratorOrAdmin: canModerateCommunities(principal?.role),
+  };
+}
+
+export function CommunityHubWorkspace() {
+  const queryClient = useQueryClient();
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(null);
+  const [publicNameConsent, setPublicNameConsent] = useState(false);
+  const [activeInitiativeId, setActiveInitiativeId] = useState<string | null>(null);
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [banner, setBanner] = useState<string | null>(null);
+
+  const hub = useCommunitySelectionQueries(selectedCommunityId);
+  const activeCommunityId = hub.activeCommunityId;
 
   useEffect(() => {
-    if (detailQuery.data?.data) {
-      setPublicNameConsent(detailQuery.data.data.current_user_public_display_consent);
+    if (hub.detail) {
+      setPublicNameConsent(hub.detail.current_user_public_display_consent);
     }
-  }, [detailQuery.data]);
+  }, [hub.detail]);
 
   const participationForm = useForm<LogCommunityParticipationFormValues>({
     resolver: zodResolver(logCommunityParticipationFormSchema),
@@ -156,21 +300,9 @@ export function CommunityHubWorkspace() {
     },
   });
 
-  if (communitiesQuery.isLoading) {
-    return (
-      <div
-        aria-busy="true"
-        className="mt-6 h-56 animate-pulse rounded-card border border-border bg-surface p-6"
-      />
-    );
+  if (hub.isLoading) {
+    return <WorkspaceSkeleton className="mt-6 h-56" />;
   }
-
-  const principal = principalQuery.data?.data;
-  const isAuthenticated = Boolean(principal?.user_id && principal.role !== "guest");
-  const isModeratorOrAdmin =
-    principal?.role === "moderator" || principal?.role === "admin";
-  const detail = detailQuery.data?.data;
-  const initiatives: CommunityInitiative[] = initiativesQuery.data?.data ?? [];
 
   return (
     <div className="mt-6 space-y-6 text-text-primary">
@@ -194,327 +326,40 @@ export function CommunityHubWorkspace() {
         </div>
       ) : null}
 
-      {isModeratorOrAdmin ? (
-        <form
-          onSubmit={createGroupForm.handleSubmit((vals) => createGroupMutation.mutate(vals))}
-          className="space-y-4 rounded-card border border-border bg-surface p-6"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">
-              Moderator · Create Coarse-Boundary Neighborhood Group
-            </h2>
-            <Link href="/admin/community" className="text-xs text-brand-primary underline">
-              Open Moderation Queue
-            </Link>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-xs font-medium">
-              Group Name
-              <input
-                {...createGroupForm.register("name")}
-                placeholder="Indiranagar Clean Commute Circle"
-                className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-sm"
-              />
-            </label>
-            <label className="text-xs font-medium">
-              Slug
-              <input
-                {...createGroupForm.register("slug")}
-                placeholder="indiranagar-clean-commute"
-                className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-sm"
-              />
-            </label>
-            <label className="text-xs font-medium">
-              City
-              <input
-                {...createGroupForm.register("city")}
-                className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-sm"
-              />
-            </label>
-            <label className="text-xs font-medium">
-              Coarse Boundary Label (No street numbers/GPS)
-              <input
-                {...createGroupForm.register("coarse_boundary_label")}
-                placeholder="East Bengaluru · Metro Corridor"
-                className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-sm"
-              />
-            </label>
-            <label className="text-xs font-medium sm:col-span-2">
-              Description
-              <textarea
-                rows={2}
-                {...createGroupForm.register("description")}
-                placeholder="Voluntary carpool, transit, and school no-idling initiatives."
-                className="mt-1 w-full rounded border border-text-secondary bg-surface p-2 text-sm"
-              />
-            </label>
-          </div>
-          <button
-            type="submit"
-            disabled={createGroupMutation.isPending}
-            className="rounded bg-brand-primary px-4 py-2 text-xs font-semibold text-white dark:text-background"
-          >
-            Create Neighborhood Group
-          </button>
-        </form>
+      {hub.isModeratorOrAdmin ? (
+        <ModeratorCreateGroupForm
+          form={createGroupForm}
+          isPending={createGroupMutation.isPending}
+          onSubmit={(vals) => createGroupMutation.mutate(vals)}
+        />
       ) : null}
 
-      {communities.length === 0 ? (
-        <div className="rounded-card border border-border bg-surface p-6 text-sm text-text-secondary">
-          No neighborhood groups have been published yet. AirWise never displays synthetic
-          community groups or fabricated participation counts.
-        </div>
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <section aria-label="Discover neighborhood groups" className="space-y-3">
-            <h2 className="text-base font-semibold">Neighborhood Groups</h2>
-            {communities.map((comm) => (
-              <button
-                key={comm.id}
-                type="button"
-                onClick={() => setSelectedCommunityId(comm.id)}
-                className={`w-full rounded-card border p-4 text-left transition-colors ${
-                  comm.id === activeCommunityId
-                    ? "border-brand-primary bg-surface shadow-sm"
-                    : "border-border bg-surface"
-                }`}
-              >
-                <p className="font-semibold text-text-primary">{comm.name}</p>
-                <p className="text-xs text-text-secondary">
-                  {comm.city} · {comm.coarse_boundary_label}
-                </p>
-                <p className="mt-2 text-xs text-text-secondary">
-                  {comm.member_count} member(s) · {comm.active_initiatives_count} active
-                  initiative(s)
-                </p>
-              </button>
-            ))}
-          </section>
-
-          <section
-            aria-label="Selected community dashboard"
-            className="space-y-5 lg:col-span-2"
-          >
-            {detail ? (
-              <div className="space-y-4 rounded-card border border-border bg-surface p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-bold">{detail.name}</h2>
-                    <p className="text-xs text-text-secondary">
-                      {detail.city} · Coarse Area: <strong>{detail.coarse_boundary_label}</strong>
-                    </p>
-                  </div>
-                  {isAuthenticated ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowReportForm((prev) => !prev)}
-                      className="rounded border border-text-secondary px-3 py-1 text-xs"
-                    >
-                      Report Issue / PII
-                    </button>
-                  ) : null}
-                </div>
-
-                <p className="text-sm text-text-secondary">{detail.description}</p>
-
-                <dl className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-lg border border-border p-3">
-                    <dt className="text-xs text-text-secondary">Members</dt>
-                    <dd className="mt-1 text-xl font-bold">{detail.member_count}</dd>
-                  </div>
-                  <div className="rounded-lg border border-border p-3">
-                    <dt className="text-xs text-text-secondary">Self-Reported Actions</dt>
-                    <dd className="mt-1 text-xl font-bold">
-                      {detail.total_self_reported_actions}
-                    </dd>
-                  </div>
-                  <div className="rounded-lg border border-brand-primary/50 bg-brand-accent/30 p-3">
-                    <dt className="text-xs text-text-secondary">Est. Avoided CO₂e</dt>
-                    <dd className="mt-1 text-xl font-bold">
-                      {detail.total_estimated_avoided_co2e_kg}{" "}
-                      <span className="text-xs font-normal">kg</span>
-                    </dd>
-                  </div>
-                </dl>
-
-                {detail.consented_member_display_names.length > 0 ? (
-                  <p className="text-xs text-text-secondary">
-                    <strong className="text-text-primary">
-                      Opt-In Public Contributors:
-                    </strong>{" "}
-                    {detail.consented_member_display_names.join(", ")}
-                  </p>
-                ) : (
-                  <p className="text-xs text-text-secondary">
-                    Individual member names are private by default (0 members opted into public
-                    display).
-                  </p>
-                )}
-
-                {isAuthenticated ? (
-                  <div className="space-y-3 border-t border-border pt-4">
-                    <label className="flex items-center gap-2 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={publicNameConsent}
-                        onChange={(e) => setPublicNameConsent(e.target.checked)}
-                      />
-                      Optional: Show my display name in this group&apos;s public contributor list
-                      (off by default)
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={joinMutation.isPending}
-                        onClick={() => joinMutation.mutate()}
-                        className="rounded bg-brand-primary px-4 py-1.5 text-xs font-semibold text-white dark:text-background"
-                      >
-                        {detail.is_current_user_member
-                          ? "Update Privacy Consent"
-                          : "Join Neighborhood Group"}
-                      </button>
-                      {detail.is_current_user_member ? (
-                        <button
-                          type="button"
-                          disabled={leaveMutation.isPending}
-                          onClick={() => leaveMutation.mutate()}
-                          className="rounded border border-text-secondary px-3 py-1.5 text-xs"
-                        >
-                          Leave Group
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="border-t border-border pt-3 text-xs text-text-secondary">
-                    <Link href="/login" className="font-semibold text-brand-primary underline">
-                      Sign in
-                    </Link>{" "}
-                    to join this group or log voluntary clean-air challenge actions.
-                  </p>
-                )}
-
-                {showReportForm ? (
-                  <form
-                    onSubmit={reportForm.handleSubmit((vals) => reportMutation.mutate(vals))}
-                    className="space-y-3 rounded-lg border border-border bg-background p-4"
-                  >
-                    <h3 className="text-sm font-semibold">Report Moderation or Privacy Concern</h3>
-                    <select
-                      {...reportForm.register("reason_category")}
-                      className="w-full rounded border border-text-secondary bg-surface p-2 text-xs"
-                    >
-                      <option value="pii_exposure">Personal / Exact Location Exposure</option>
-                      <option value="misinformation">Scientific / AQI Misinformation</option>
-                      <option value="unsafe_health_advice">Unsafe Health Advice</option>
-                      <option value="harassment_or_spam">Harassment or Spam</option>
-                    </select>
-                    <textarea
-                      rows={2}
-                      {...reportForm.register("details")}
-                      placeholder="Describe the concern for moderator review..."
-                      className="w-full rounded border border-text-secondary bg-surface p-2 text-xs"
-                    />
-                    <button
-                      type="submit"
-                      disabled={reportMutation.isPending}
-                      className="rounded bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white dark:text-background"
-                    >
-                      Submit Report
-                    </button>
-                  </form>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div className="space-y-3 rounded-card border border-border bg-surface p-6">
-              <h3 className="text-base font-semibold">Active Clean-Air Initiatives</h3>
-              {initiatives.length === 0 ? (
-                <p className="text-sm text-text-secondary">
-                  No active challenges in this neighborhood right now.
-                </p>
-              ) : (
-                <ul className="space-y-4">
-                  {initiatives.map((init) => (
-                    <li key={init.id} className="space-y-2 rounded-lg border border-border p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h4 className="font-semibold">{init.title}</h4>
-                        <span className="rounded-full border border-border px-2.5 py-0.5 text-xs text-text-secondary">
-                          {init.challenge_type.replaceAll("_", " ")}
-                        </span>
-                      </div>
-                      <p className="text-xs text-text-secondary">{init.description}</p>
-                      <p className="text-xs font-medium text-text-primary">
-                        Self-reported aggregate: {init.total_self_reported_actions} action(s) · Est.{" "}
-                        {init.total_estimated_avoided_co2e_kg} kg CO₂e avoided
-                      </p>
-                      {detail?.is_current_user_member ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setActiveInitiativeId((prev) => (prev === init.id ? null : init.id))
-                          }
-                          className="rounded border border-text-secondary px-3 py-1 text-xs font-semibold"
-                        >
-                          Log Voluntary Action
-                        </button>
-                      ) : null}
-
-                      {activeInitiativeId === init.id ? (
-                        <form
-                          onSubmit={participationForm.handleSubmit((vals) =>
-                            participateMutation.mutate(vals),
-                          )}
-                          className="mt-2 space-y-3 rounded border border-border bg-background p-3 text-xs"
-                        >
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <label>
-                              Completed Actions Count
-                              <input
-                                type="number"
-                                {...participationForm.register("self_reported_actions_count")}
-                                className="mt-1 w-full rounded border border-text-secondary bg-surface p-1.5"
-                              />
-                            </label>
-                            <label>
-                              Optional Solo-Car Distance Replaced (km)
-                              <input
-                                type="number"
-                                step="0.5"
-                                {...participationForm.register("commute_distance_saved_km")}
-                                className="mt-1 w-full rounded border border-text-secondary bg-surface p-1.5"
-                              />
-                            </label>
-                          </div>
-                          <label className="block">
-                            Optional Note (No street addresses or emails)
-                            <input
-                              {...participationForm.register("note")}
-                              className="mt-1 w-full rounded border border-text-secondary bg-surface p-1.5"
-                            />
-                          </label>
-                          {participationForm.formState.errors.note ? (
-                            <p className="text-red-700 dark:text-red-300">
-                              {participationForm.formState.errors.note.message}
-                            </p>
-                          ) : null}
-                          <button
-                            type="submit"
-                            disabled={participateMutation.isPending}
-                            className="rounded bg-brand-primary px-3 py-1.5 font-semibold text-white dark:text-background"
-                          >
-                            Submit Self-Reported Entry
-                          </button>
-                        </form>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
-        </div>
-      )}
+      <CommunityMainGrid
+        communities={hub.communities}
+        activeCommunityId={activeCommunityId}
+        detail={hub.detail}
+        initiatives={hub.initiatives}
+        isAuthenticated={hub.isAuthenticated}
+        publicNameConsent={publicNameConsent}
+        showReportForm={showReportForm}
+        activeInitiativeId={activeInitiativeId}
+        joinPending={joinMutation.isPending}
+        leavePending={leaveMutation.isPending}
+        reportPending={reportMutation.isPending}
+        participatePending={participateMutation.isPending}
+        reportForm={reportForm}
+        participationForm={participationForm}
+        onSelectCommunity={setSelectedCommunityId}
+        onToggleReportForm={() => setShowReportForm((prev) => !prev)}
+        onConsentChange={setPublicNameConsent}
+        onJoinOrUpdate={() => joinMutation.mutate()}
+        onLeave={() => leaveMutation.mutate()}
+        onSubmitReport={(vals) => reportMutation.mutate(vals)}
+        onToggleInitiative={(id) =>
+          setActiveInitiativeId((prev) => (prev === id ? null : id))
+        }
+        onSubmitParticipation={(vals) => participateMutation.mutate(vals)}
+      />
     </div>
   );
 }

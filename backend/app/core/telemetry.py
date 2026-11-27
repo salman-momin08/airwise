@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 
-
 @dataclass
 class TelemetryRegistry:
     """Lightweight operational counters & latency ring buffer exposed to Prometheus/OTel."""
@@ -27,8 +26,7 @@ class TelemetryRegistry:
         if not self.recent_latencies_ms:
             return 0.0
         ordered = sorted(self.recent_latencies_ms)
-        idx = min(len(ordered) - 1, max(0, int(round((percentile / 100.0) * (len(ordered) - 1)))))
+        idx = min(len(ordered) - 1, max(0, round((percentile / 100.0) * (len(ordered) - 1))))
         return round(ordered[idx], 2)
-
 
 telemetry_registry = TelemetryRegistry()

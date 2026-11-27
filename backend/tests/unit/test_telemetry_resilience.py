@@ -35,7 +35,6 @@ from app.services.air_quality.aqi_calculator import (
 from app.services.air_quality.cache import StaleAwareTelemetryCache
 from app.services.air_quality.telemetry_service import AirQualityTelemetryService
 
-
 class _FailingPrimaryAdapter:
     provider_slug = "openaq"
 
@@ -57,7 +56,6 @@ class _FailingPrimaryAdapter:
         self, city: str, period: Literal["24h", "7d", "30d"]
     ) -> NormalizedHistoryPayload:
         raise ExternalProviderUnavailableError()
-
 
 class _ToggleableFallbackAdapter:
     provider_slug = "openweather"
@@ -99,7 +97,6 @@ class _ToggleableFallbackAdapter:
     ) -> NormalizedHistoryPayload:
         raise ExternalProviderUnavailableError()
 
-
 def test_us_epa_gaseous_breakpoints_and_explicit_unit_conversion() -> None:
     # Convert 76 ug/m3 NO2 -> ppb at 25°C, 1 atm (~40.4 ppb -> Good in US EPA)
     converted_no2 = convert_gas_unit_for_standard(
@@ -125,14 +122,12 @@ def test_us_epa_gaseous_breakpoints_and_explicit_unit_conversion() -> None:
     assert epa_o3.status == "available"
     assert epa_o3.category == "Unhealthy for Sensitive Groups"
 
-
 def test_ssrf_host_allowlist_blocks_untrusted_targets() -> None:
     assert_allowed_https_url("https://api.openaq.org/v3/locations")
     with pytest.raises(ExternalProviderUnavailableError):
         assert_allowed_https_url("http://169.254.169.254/latest/meta-data/")
     with pytest.raises(ExternalProviderUnavailableError):
         assert_allowed_https_url("https://evil.example.org/v3/locations")
-
 
 async def test_primary_to_fallback_failover_and_stale_cache_warning(
     db_engine: AsyncEngine,
@@ -188,7 +183,6 @@ async def test_primary_to_fallback_failover_and_stale_cache_warning(
                 city="Mumbai", standard=AQIStandard.INDIA_NAQI
             )
 
-
 async def test_openaq_v3_resolves_location_latest_by_sensors_id() -> None:
     now_iso = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
 
@@ -235,7 +229,6 @@ async def test_openaq_v3_resolves_location_latest_by_sensors_id() -> None:
     assert payload.measurements[PollutantCode.PM25] == (168.4, "ug/m3")
     assert payload.measurements[PollutantCode.PM10] == (284.0, "ug/m3")
     assert payload.measurements[PollutantCode.NO2] == (72.5, "ug/m3")
-
 
 async def test_openaq_does_not_leak_key_to_openweather_and_uses_open_meteo_fallback() -> None:
     settings = Settings(
@@ -285,7 +278,6 @@ async def test_openaq_does_not_leak_key_to_openweather_and_uses_open_meteo_fallb
             transport=httpx.MockTransport(unauthorized),
         )
     assert calls == 1
-
 
 async def test_list_stations_in_bbox_batches_queries_without_n_plus_one(
     db_engine: AsyncEngine,
@@ -353,5 +345,3 @@ async def test_list_stations_in_bbox_batches_queries_without_n_plus_one(
     by_ext_id = {st.external_station_id: meas for st, _, meas, _, _ in stations}
     assert by_ext_id["delhi-st-0"][PollutantCode.PM25] == (180.0, "ug/m3")
     assert by_ext_id["delhi-st-4"][PollutantCode.PM25] == (184.0, "ug/m3")
-
-

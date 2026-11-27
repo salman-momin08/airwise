@@ -37,7 +37,6 @@ Database = Annotated[AsyncSession, Depends(get_db_session)]
 AppSettings = Annotated[Settings, Depends(get_app_settings)]
 Meta = Annotated[ResponseMeta, Depends(get_response_meta)]
 
-
 @router.get("/capabilities", response_model=ApiResponse[dict[str, object]])
 async def get_assistant_capabilities(
     meta: Annotated[ResponseMeta, Depends(get_response_meta)],
@@ -55,7 +54,6 @@ async def get_assistant_capabilities(
         meta=meta,
     )
 
-
 @router.post(
     "/chat",
     response_model=ApiResponse[ChatResult],
@@ -69,6 +67,71 @@ async def chat(
     data = await service.run(payload, save_history=save_history)
     return ApiResponse(data=data, meta=meta)
 
+async def _produce_assistant_events(
+    *,
+    service: AssistantService,
+    payload: ChatRequest,
+    save_history: bool,
+    queue: asyncio.Queue[tuple[str, dict[str, object]] | None],
+) -> None:
+    async def emit(stage: str, tool: str | None) -> None:
+        data: dict[str, object] = {"stage": stage}
+        if tool is not None:
+            data["tool"] = tool
+        await queue.put(("status", data))
+
+    try:
+        result = await service.run(payload, save_history=save_history, emit=emit)
+        # Only validated content is released. Raw provider tokens may contain
+        # hallucinations or unsafe advice and must never reach the client.
+        content = result.structured_response.recommended_action
+        for start in range(0, len(content), 80):
+            await queue.put(("delta", {"content": content[start : start + 80]}))
+        await queue.put(("complete", result.model_dump(mode="json")))
+    except AirWiseError as exc:
+        await queue.put(("error", {"code": exc.code, "message": exc.message}))
+    except SQLAlchemyError as exc:
+        logger.error("assistant_persistence_failed", error_type=type(exc).__name__)
+        await queue.put(
+            (
+                "error",
+                {
+                    "code": "AI_PERSISTENCE_UNAVAILABLE",
+                    "message": "The response could not be saved. Please try again.",
+                },
+            )
+        )
+    finally:
+        await queue.put(None)
+
+async def _stream_assistant_events(
+    *,
+    service: AssistantService,
+    payload: ChatRequest,
+    save_history: bool,
+    request: Request,
+    request_id: str,
+) -> AsyncIterator[str]:
+    queue: asyncio.Queue[tuple[str, dict[str, object]] | None] = asyncio.Queue()
+    task = asyncio.create_task(
+        _produce_assistant_events(
+            service=service, payload=payload, save_history=save_history, queue=queue
+        )
+    )
+    try:
+        while (event := await queue.get()) is not None:
+            if await request.is_disconnected():
+                break
+            name, data = event
+            data["request_id"] = request_id
+            yield f"event: {name}\ndata: {json.dumps(data)}\n\n"
+        if task.done():
+            await task
+    finally:
+        if not task.done():
+            task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
 
 @router.post("/chat/stream", dependencies=[Depends(enforce_csrf_protection)])
 async def stream_chat(
@@ -81,65 +144,17 @@ async def stream_chat(
 ) -> StreamingResponse:
     service = AssistantService(db, settings, principal.user_id, request_id=meta.request_id)
     save_history = await service.authorize(payload)
-
-    async def events() -> AsyncIterator[str]:
-        queue: asyncio.Queue[tuple[str, dict[str, object]] | None] = asyncio.Queue()
-
-        async def emit(stage: str, tool: str | None) -> None:
-            data: dict[str, object] = {"stage": stage}
-            if tool is not None:
-                data["tool"] = tool
-            await queue.put(("status", data))
-
-        async def produce() -> None:
-            try:
-                result = await service.run(payload, save_history=save_history, emit=emit)
-                # Only validated content is released. Raw provider tokens may contain
-                # hallucinations or unsafe advice and must never reach the client.
-                content = result.structured_response.recommended_action
-                for start in range(0, len(content), 80):
-                    await queue.put(("delta", {"content": content[start : start + 80]}))
-                await queue.put(("complete", result.model_dump(mode="json")))
-            except AirWiseError as exc:
-                await queue.put(("error", {"code": exc.code, "message": exc.message}))
-            except SQLAlchemyError as exc:
-                logger.error("assistant_persistence_failed", error_type=type(exc).__name__)
-                await queue.put(
-                    (
-                        "error",
-                        {
-                            "code": "AI_PERSISTENCE_UNAVAILABLE",
-                            "message": "The response could not be saved. Please try again.",
-                        },
-                    )
-                )
-            finally:
-                await queue.put(None)
-
-        task = asyncio.create_task(produce())
-        try:
-            while True:
-                event = await queue.get()
-                if event is None:
-                    await task
-                    break
-                if await request.is_disconnected():
-                    break
-                name, data = event
-                data["request_id"] = meta.request_id
-                yield f"event: {name}\ndata: {json.dumps(data)}\n\n"
-        finally:
-            if not task.done():
-                task.cancel()
-            with suppress(asyncio.CancelledError):
-                await task
-
     return StreamingResponse(
-        events(),
+        _stream_assistant_events(
+            service=service,
+            payload=payload,
+            save_history=save_history,
+            request=request,
+            request_id=meta.request_id,
+        ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
     )
-
 
 @router.get("/conversations", response_model=ApiResponse[list[ConversationData]])
 async def list_conversations(
@@ -149,7 +164,6 @@ async def list_conversations(
 ) -> ApiResponse[list[ConversationData]]:
     data = await AssistantRepository(db).list_conversations(user_id=principal.user_id)
     return ApiResponse(data=data, meta=meta)
-
 
 @router.get(
     "/conversations/{conversation_id}/messages",
@@ -166,7 +180,6 @@ async def list_messages(
     )
     return ApiResponse(data=data, meta=meta)
 
-
 @router.delete(
     "/conversations",
     response_model=ApiResponse[dict[str, str]],
@@ -180,7 +193,6 @@ async def delete_history(
     await AssistantRepository(db).delete_history(user_id=principal.user_id)
     await db.commit()
     return ApiResponse(data={"status": "deleted"}, meta=meta)
-
 
 @router.delete(
     "/conversations/{conversation_id}",

@@ -9,13 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.models.identity import User
 
-
 def _csrf(client: AsyncClient) -> dict[str, str]:
     return {
         "X-CSRF-Token": client.cookies.get("airwise_csrf", ""),
         "Origin": "http://localhost:3000",
     }
-
 
 async def _register(client: AsyncClient, email: str, name: str) -> uuid.UUID:
     res = await client.post(
@@ -28,7 +26,6 @@ async def _register(client: AsyncClient, email: str, name: str) -> uuid.UUID:
     )
     assert res.status_code == 201
     return uuid.UUID(str(res.json()["data"]["user_id"]))
-
 
 async def test_admin_rbac_self_lockout_guard_session_revocation_and_audit_redaction(
     api_client: AsyncClient,
@@ -133,7 +130,6 @@ async def test_admin_rbac_self_lockout_guard_session_revocation_and_audit_redact
     api_client.cookies.set("airwise_session", regular_session)
     assert (await api_client.get("/api/v1/users/me")).status_code == 401
 
-
 async def test_readiness_security_headers_prometheus_metrics_and_cached_aqi_latency_budget(
     api_client: AsyncClient,
 ) -> None:
@@ -159,7 +155,7 @@ async def test_readiness_security_headers_prometheus_metrics_and_cached_aqi_late
         assert res.status_code == 200
 
     sorted_samples = sorted(cached_samples_ms)
-    p95_cached_ms = sorted_samples[int(round(0.95 * (len(sorted_samples) - 1)))]
+    p95_cached_ms = sorted_samples[round(0.95 * (len(sorted_samples) - 1))]
     assert p95_cached_ms < 300.0
 
     metrics_res = await api_client.get("/metrics")

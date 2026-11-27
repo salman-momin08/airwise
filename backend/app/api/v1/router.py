@@ -1,3 +1,5 @@
+"""Top-level `/api/v1` API router aggregating all bounded-context sub-routers."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter

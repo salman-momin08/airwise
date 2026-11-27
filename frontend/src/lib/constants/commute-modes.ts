@@ -1,3 +1,7 @@
+/**
+ * Canonical transport mode options and labels shared across commute calculators and preferences.
+ */
+
 import type { CommuteMode } from "@/types/api";
 
 export const COMMUTE_MODE_VALUES = [

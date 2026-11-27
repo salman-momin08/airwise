@@ -1,3 +1,5 @@
+"""Deterministic formulas for transport CO2e, household energy, CADR ACH, and PM2.5 exposure."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -5,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Literal
 
 ConfidenceLevel = Literal["low", "medium", "high"]
+
 
 @dataclass(frozen=True)
 class ImpactResult:
@@ -23,6 +26,7 @@ class ImpactResult:
     calculated_at: str = field(
         default_factory=lambda: datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
     )
+
 
 def calculate_transport_emissions(
     *,
@@ -64,6 +68,7 @@ def calculate_transport_emissions(
         confidence="medium",
     )
 
+
 def calculate_household_energy_emissions(
     *,
     baseline_power_kw: float,
@@ -100,6 +105,7 @@ def calculate_household_energy_emissions(
         confidence="medium",
     )
 
+
 def calculate_indoor_filtration_ach(
     *,
     room_area_m2: float,
@@ -126,10 +132,7 @@ def calculate_indoor_filtration_ach(
     )
 
     assumptions = [
-        (
-            f"Room volume: {volume_m3:.1f} m3 "
-            f"({room_area_m2:.1f} m2 x {ceiling_height_m:.2f} m)"
-        ),
+        (f"Room volume: {volume_m3:.1f} m3 ({room_area_m2:.1f} m2 x {ceiling_height_m:.2f} m)"),
         f"Purifier CADR: {cadr_m3_per_hour:.0f} m3/h on selected speed",
         (
             f"Steady-state I/O particle ratio approximation: ~{steady_state_ratio:.2f} "
@@ -160,6 +163,7 @@ def calculate_indoor_filtration_ach(
         source_references=["US EPA Guide to Air Cleaners in the Home (CADR/ACH sizing)"],
         confidence="low" if has_active_indoor_smoke else "medium",
     )
+
 
 def estimate_relative_exposure_change(
     *,

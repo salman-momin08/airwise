@@ -1,3 +1,5 @@
+"""Keyless Open-Meteo CAMS atmospheric air quality current, forecast, and history adapter."""
+
 from __future__ import annotations
 
 import math
@@ -38,6 +40,7 @@ _HOURLY_SERIES_KEYS = (
     "carbon_monoxide",
 )
 
+
 class OpenMeteoAirQualityAdapter:
     """Keyless Open-Meteo CAMS atmospheric model adapter (source_type='model')."""
 
@@ -76,7 +79,7 @@ class OpenMeteoAirQualityAdapter:
         hourly = body.get("hourly")
         times = hourly.get("time") if isinstance(hourly, dict) else None
         if not isinstance(hourly, dict) or not isinstance(times, list) or not times:
-            raise ExternalProviderUnavailableError()
+            raise ExternalProviderUnavailableError
         return hourly, times
 
     async def fetch_city_measurements(self, city: str) -> NormalizedProviderPayload:
@@ -93,10 +96,10 @@ class OpenMeteoAirQualityAdapter:
         )
         current = body.get("current")
         if not isinstance(current, dict):
-            raise ExternalProviderUnavailableError()
+            raise ExternalProviderUnavailableError
         measurements = self._extract_current(current)
         if not measurements:
-            raise ExternalProviderUnavailableError()
+            raise ExternalProviderUnavailableError
         raw_ts = current.get("time")
         measured_at = (
             datetime.fromtimestamp(int(raw_ts), tz=UTC)
@@ -136,9 +139,7 @@ class OpenMeteoAirQualityAdapter:
             )
         ]
 
-    async def fetch_city_forecast(
-        self, city: str, hours: int = 24
-    ) -> NormalizedForecastPayload:
+    async def fetch_city_forecast(self, city: str, hours: int = 24) -> NormalizedForecastPayload:
         centroid = require_city_centroid(city)
         bounded_hours = max(6, min(72, hours))
         forecast_days = max(2, math.ceil(bounded_hours / 24) + 1)
@@ -179,7 +180,7 @@ class OpenMeteoAirQualityAdapter:
                 )
             )
         if not slices:
-            raise ExternalProviderUnavailableError()
+            raise ExternalProviderUnavailableError
         return NormalizedForecastPayload(
             city=centroid.city,
             provider=self.provider_slug,

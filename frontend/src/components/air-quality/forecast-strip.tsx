@@ -1,3 +1,7 @@
+/**
+ * 24-hour standard-isolated AQI forecast strip highlighting cleaner dispersion windows.
+ */
+
 import { AQIBadge } from "@/components/air-quality/aqi-badge";
 import type { AirQualityForecast } from "@/types/api";
 

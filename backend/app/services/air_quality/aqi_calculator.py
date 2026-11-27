@@ -1,12 +1,16 @@
+"""Deterministic India NAQI (CPCB) and US EPA (2024 PM2.5) piecewise-linear AQI calculators."""
+
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
 from enum import StrEnum
 
+
 class AQIStandard(StrEnum):
     US_EPA = "us_epa"
     INDIA_NAQI = "india_naqi"
+
 
 class PollutantCode(StrEnum):
     PM25 = "pm25"
@@ -16,6 +20,7 @@ class PollutantCode(StrEnum):
     CO = "co"
     O3 = "o3"
 
+
 @dataclass(frozen=True)
 class BreakpointBand:
     bp_low: float
@@ -24,6 +29,7 @@ class BreakpointBand:
     index_high: int
     category: str
 
+
 @dataclass(frozen=True)
 class SubIndexResult:
     pollutant: PollutantCode
@@ -31,6 +37,7 @@ class SubIndexResult:
     category: str
     truncated_concentration: float
     unit: str
+
 
 @dataclass(frozen=True)
 class AQICalculationResult:
@@ -41,6 +48,7 @@ class AQICalculationResult:
     dominant_pollutant: PollutantCode | None
     sub_indices: dict[PollutantCode, SubIndexResult]
     unavailable_reason: str | None = None
+
 
 # India National AQI (CPCB) breakpoints:
 # 24-hr for PM2.5, PM10, NO2, SO2 (ug/m3); 8-hr for CO (mg/m3), O3 (ug/m3)
@@ -198,6 +206,7 @@ MOLECULAR_WEIGHTS_G_MOL: dict[PollutantCode, float] = {
     PollutantCode.O3: 48.00,
 }
 
+
 def _convert_to_india_naqi_gas_unit(
     pollutant: PollutantCode, concentration: float, normalized_unit: str, mw: float
 ) -> tuple[float, str] | None:
@@ -219,6 +228,7 @@ def _convert_to_india_naqi_gas_unit(
     factor = ug_factors.get(normalized_unit)
     return (concentration * factor, "ug/m3") if factor is not None else None
 
+
 def _convert_to_us_epa_gas_unit(
     pollutant: PollutantCode, concentration: float, normalized_unit: str, mw: float
 ) -> tuple[float, str] | None:
@@ -239,6 +249,7 @@ def _convert_to_us_epa_gas_unit(
     }
     factor = ppb_factors.get(normalized_unit)
     return (concentration * factor, "ppb") if factor is not None else None
+
 
 def convert_gas_unit_for_standard(
     pollutant: PollutantCode,
@@ -262,25 +273,25 @@ def convert_gas_unit_for_standard(
         return _convert_to_india_naqi_gas_unit(pollutant, concentration, normalized_unit, mw)
     return _convert_to_us_epa_gas_unit(pollutant, concentration, normalized_unit, mw)
 
+
 def _truncate_decimals(value: float, decimals: int) -> float:
     if decimals <= 0:
         return float(math.floor(value))
     factor = float(10**decimals)
     return float(math.floor(value * factor + 1e-9) / factor)
 
+
 def _interpolate_band(conc: float, bands: tuple[BreakpointBand, ...]) -> tuple[int, str]:
     for band in bands:
         if band.bp_low <= conc <= band.bp_high:
-            raw = (
-                (band.index_high - band.index_low)
-                / (band.bp_high - band.bp_low)
-                * (conc - band.bp_low)
-                + band.index_low
-            )
+            raw = (band.index_high - band.index_low) / (band.bp_high - band.bp_low) * (
+                conc - band.bp_low
+            ) + band.index_low
             return round(raw), band.category
     if conc > bands[-1].bp_high:
         return bands[-1].index_high, bands[-1].category
     return bands[0].index_low, bands[0].category
+
 
 def _compute_india_naqi_sub_indices(
     measurements: dict[PollutantCode, tuple[float, str]],
@@ -304,6 +315,7 @@ def _compute_india_naqi_sub_indices(
         )
     return sub_indices
 
+
 def _compute_us_epa_sub_indices(
     measurements: dict[PollutantCode, tuple[float, str]],
 ) -> dict[PollutantCode, SubIndexResult]:
@@ -324,6 +336,7 @@ def _compute_us_epa_sub_indices(
             unit=unit,
         )
     return sub_indices
+
 
 def calculate_aqi(
     standard: AQIStandard,

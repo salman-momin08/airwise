@@ -1,8 +1,11 @@
+"""Pydantic v2 DTOs for meteorological conditions and thermal inversion indicators."""
+
 from __future__ import annotations
 
 from datetime import datetime
 
 from pydantic import BaseModel, Field
+
 
 class CurrentWeatherSchema(BaseModel):
     city: str

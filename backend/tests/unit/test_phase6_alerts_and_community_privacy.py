@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from app.schemas.community import CreateCommunityRequest, LogParticipationRequest
 from app.services.alerts.alert_service import is_within_quiet_hours
 
+
 def test_timezone_aware_quiet_hours_overnight_and_daytime_windows() -> None:
     # 20:00 UTC == 01:30 IST (+05:30) next day -> inside 22:00..07:00 IST overnight quiet hours
     assert (
@@ -53,6 +54,7 @@ def test_timezone_aware_quiet_hours_overnight_and_daytime_windows() -> None:
         is True
     )
 
+
 @pytest.mark.parametrize(
     "unsafe_text",
     [
@@ -81,6 +83,7 @@ def test_community_schemas_reject_exact_addresses_coordinates_and_pii(
             commute_distance_saved_km=5.0,
             note=unsafe_text,
         )
+
 
 def test_community_schema_accepts_coarse_neighborhood_label() -> None:
     valid = CreateCommunityRequest(

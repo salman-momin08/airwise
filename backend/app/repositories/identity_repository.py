@@ -1,3 +1,5 @@
+"""Repository for users, sessions, tokens, saved locations, preferences, and audit logs."""
+
 from __future__ import annotations
 
 import uuid
@@ -22,6 +24,7 @@ from app.models.identity import (
 from app.repositories.alerts_community_repository import AlertsCommunityRepository
 from app.repositories.assistant_repository import AssistantRepository
 from app.repositories.planning_repository import PlanningRepository
+
 
 class IdentityRepository:
     """Async SQLAlchemy 2.x repository enforcing strict object-level user_id scoping."""
@@ -161,9 +164,7 @@ class IdentityRepository:
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
 
-    async def revoke_session_for_user(
-        self, *, user_id: uuid.UUID, session_id: uuid.UUID
-    ) -> bool:
+    async def revoke_session_for_user(self, *, user_id: uuid.UUID, session_id: uuid.UUID) -> bool:
         now = datetime.now(tz=UTC)
         stmt = (
             update(UserSession)
@@ -194,10 +195,7 @@ class IdentityRepository:
         now = datetime.now(tz=UTC)
         stmt = delete(UserSession).where(
             (UserSession.expires_at < retention_cutoff)
-            | (
-                UserSession.revoked_at.is_not(None)
-                & (UserSession.revoked_at < retention_cutoff)
-            )
+            | (UserSession.revoked_at.is_not(None) & (UserSession.revoked_at < retention_cutoff))
             | ((UserSession.expires_at < now) & UserSession.revoked_at.is_not(None))
         )
         cursor = cast(CursorResult[Any], await self._session.execute(stmt))
@@ -343,30 +341,18 @@ class IdentityRepository:
             user_id=user_id
         )
         await self._session.execute(
-            update(AuditLog)
-            .where(AuditLog.actor_user_id == user_id)
-            .values(actor_user_id=None)
+            update(AuditLog).where(AuditLog.actor_user_id == user_id).values(actor_user_id=None)
         )
         await self._session.execute(
-            update(SystemSetting)
-            .where(SystemSetting.updated_by == user_id)
-            .values(updated_by=None)
+            update(SystemSetting).where(SystemSetting.updated_by == user_id).values(updated_by=None)
         )
-        await self._session.execute(
-            delete(SavedLocation).where(SavedLocation.user_id == user_id)
-        )
+        await self._session.execute(delete(SavedLocation).where(SavedLocation.user_id == user_id))
         await self._session.execute(
             delete(UserActionToken).where(UserActionToken.user_id == user_id)
         )
-        await self._session.execute(
-            delete(UserSession).where(UserSession.user_id == user_id)
-        )
-        await self._session.execute(
-            delete(UserPreference).where(UserPreference.user_id == user_id)
-        )
-        await self._session.execute(
-            delete(UserProfile).where(UserProfile.user_id == user_id)
-        )
+        await self._session.execute(delete(UserSession).where(UserSession.user_id == user_id))
+        await self._session.execute(delete(UserPreference).where(UserPreference.user_id == user_id))
+        await self._session.execute(delete(UserProfile).where(UserProfile.user_id == user_id))
         await self._session.execute(delete(User).where(User.id == user_id))
         await self.append_audit_log(
             actor_user_id=None,

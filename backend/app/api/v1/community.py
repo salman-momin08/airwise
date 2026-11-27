@@ -1,3 +1,5 @@
+"""Neighborhood clean-air community groups, initiatives, participation, and moderation endpoints."""
+
 from __future__ import annotations
 
 import uuid
@@ -44,6 +46,7 @@ Principal = Annotated[AuthenticatedPrincipal, Depends(require_authenticated_user
 ModeratorPrincipal = Annotated[AuthenticatedPrincipal, Depends(require_moderator_or_admin)]
 OptionalPrincipal = Annotated[RequestPrincipal, Depends(get_current_principal)]
 
+
 @router.get("", response_model=ApiResponse[list[CommunitySummarySchema]])
 async def list_communities(
     db: Database,
@@ -53,10 +56,9 @@ async def list_communities(
     city: Annotated[str | None, Query(min_length=2, max_length=100)] = None,
 ) -> ApiResponse[list[CommunitySummarySchema]]:
     service = CommunityService(session=db, settings=settings)
-    items = await service.list_communities(
-        city=city, current_user_id=principal.user_id
-    )
+    items = await service.list_communities(city=city, current_user_id=principal.user_id)
     return ApiResponse(data=items, meta=meta)
+
 
 @router.post(
     "",
@@ -80,6 +82,7 @@ async def create_community(
     )
     return ApiResponse(data=created, meta=meta)
 
+
 @router.get("/{community_id}", response_model=ApiResponse[CommunityDetailSchema])
 async def get_community_detail(
     community_id: uuid.UUID,
@@ -93,6 +96,7 @@ async def get_community_detail(
         community_id=community_id, current_user_id=principal.user_id
     )
     return ApiResponse(data=detail, meta=meta)
+
 
 @router.post(
     "/{community_id}/join",
@@ -116,6 +120,7 @@ async def join_community(
     )
     return ApiResponse(data=updated, meta=meta)
 
+
 @router.post(
     "/{community_id}/leave",
     response_model=ApiResponse[dict[str, str]],
@@ -129,10 +134,9 @@ async def leave_community(
     meta: Meta,
 ) -> ApiResponse[dict[str, str]]:
     service = CommunityService(session=db, settings=settings)
-    res = await service.leave_community(
-        user_id=principal.user_id, community_id=community_id
-    )
+    res = await service.leave_community(user_id=principal.user_id, community_id=community_id)
     return ApiResponse(data=res, meta=meta)
+
 
 @router.get(
     "/{community_id}/initiatives",
@@ -149,6 +153,7 @@ async def list_community_initiatives(
         community_id=community_id, include_non_active=False
     )
     return ApiResponse(data=items, meta=meta)
+
 
 @router.post(
     "/{community_id}/initiatives",
@@ -174,6 +179,7 @@ async def create_community_initiative(
     )
     return ApiResponse(data=item, meta=meta)
 
+
 @router.post(
     "/{community_id}/initiatives/{initiative_id}/participate",
     status_code=201,
@@ -198,6 +204,7 @@ async def log_community_participation(
         payload=payload,
     )
     return ApiResponse(data=receipt, meta=meta)
+
 
 @router.post(
     "/{community_id}/reports",

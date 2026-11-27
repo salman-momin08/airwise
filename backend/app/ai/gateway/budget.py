@@ -1,3 +1,5 @@
+"""Per-user daily AI token budget enforcement backed by atomic Redis Lua scripts."""
+
 from __future__ import annotations
 
 import asyncio
@@ -25,7 +27,10 @@ redis.call('EXPIRE', KEYS[1], 172800)
 return 1
 """
 
+
 class TokenBudget:
+    """Enforce daily per-user LLM token caps across serverless or worker processes."""
+
     _test_usage: ClassVar[dict[str, int]] = {}
     _redis_client: ClassVar[Redis | None] = None
     _redis_url_cached: ClassVar[str | None] = None
@@ -38,10 +43,26 @@ class TokenBudget:
 
     @classmethod
     def reset_local_state(cls) -> None:
+        """Reset in-memory test counters and cached Redis client state."""
         cls._test_usage.clear()
         cls._redis_client = None
         cls._redis_url_cached = None
         cls._redis_loop = None
+
+    @classmethod
+    def _invalidate_redis_client(cls) -> None:
+        cls._redis_client = None
+        cls._redis_loop = None
+
+    @classmethod
+    async def aclose(cls) -> None:
+        """Close the shared Redis client connection pool on application shutdown."""
+        client = cls._redis_client
+        cls._redis_client = None
+        cls._redis_url_cached = None
+        cls._redis_loop = None
+        if client is not None:
+            await client.aclose()
 
     @classmethod
     def _get_redis(cls, redis_url: str) -> Redis:
@@ -89,8 +110,7 @@ class TokenBudget:
             if not allowed:
                 raise RateLimitExceededError(code="AI_DAILY_BUDGET_EXCEEDED")
         except (RedisError, ValueError, RuntimeError) as exc:
-            type(self)._redis_client = None
-            type(self)._redis_loop = None
+            self._invalidate_redis_client()
             logger.warning("ai_token_budget_unavailable", error_type=type(exc).__name__)
             raise ExternalProviderUnavailableError(
                 code="AI_BUDGET_UNAVAILABLE",

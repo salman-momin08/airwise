@@ -1,3 +1,5 @@
+"""ORM entities for users, profiles, preferences, sessions, saved locations, and audit logs."""
+
 from __future__ import annotations
 
 import uuid
@@ -30,6 +32,7 @@ GEOGRAPHY_POINT_VARIANT = Text().with_variant(
     "postgresql",
 )
 
+
 class StringListType(TypeDecorator[list[str]]):
     """Cross-dialect list[str] stored as JSONB/JSON for PostgreSQL & SQLite test parity."""
 
@@ -41,8 +44,10 @@ class StringListType(TypeDecorator[list[str]]):
             return dialect.type_descriptor(JSONB())
         return dialect.type_descriptor(JSON())
 
+
 def utc_now() -> datetime:
     return datetime.now(tz=UTC)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -68,6 +73,7 @@ class User(Base):
         "UserPreference", back_populates="user", uselist=False
     )
 
+
 class UserProfile(Base):
     __tablename__ = "user_profiles"
 
@@ -85,6 +91,7 @@ class UserProfile(Base):
     )
 
     user: Mapped[User] = relationship("User", back_populates="profile")
+
 
 class UserSession(Base):
     __tablename__ = "user_sessions"
@@ -104,6 +111,7 @@ class UserSession(Base):
         DateTime(timezone=True), nullable=False, default=utc_now
     )
 
+
 class UserPreference(Base):
     __tablename__ = "user_preferences"
 
@@ -115,9 +123,7 @@ class UserPreference(Base):
     has_vulnerable_members: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     work_schedule: Mapped[dict[str, Any] | None] = mapped_column(JSON_VARIANT, nullable=True)
     school_schedule: Mapped[dict[str, Any] | None] = mapped_column(JSON_VARIANT, nullable=True)
-    commute_modes: Mapped[list[str]] = mapped_column(
-        StringListType, nullable=False, default=list
-    )
+    commute_modes: Mapped[list[str]] = mapped_column(StringListType, nullable=False, default=list)
     cooking_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     ventilation_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     has_hepa_purifier: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -131,6 +137,7 @@ class UserPreference(Base):
     )
 
     user: Mapped[User] = relationship("User", back_populates="preferences")
+
 
 class SavedLocation(Base):
     __tablename__ = "saved_locations"
@@ -165,6 +172,7 @@ class SavedLocation(Base):
         DateTime(timezone=True), nullable=False, default=utc_now
     )
 
+
 class UserActionToken(Base):
     """Single-use hashed tokens for email verification and password reset."""
 
@@ -182,6 +190,7 @@ class UserActionToken(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
+
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
@@ -201,6 +210,7 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )
+
 
 class SystemSetting(Base):
     __tablename__ = "system_settings"

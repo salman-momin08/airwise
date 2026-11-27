@@ -1,3 +1,7 @@
+/**
+ * WCAG 2.2 AA AQI severity badge pairing standard name, category text, icon, and value.
+ */
+
 import { describeAQISeverity } from "@/lib/constants/aqi";
 import type { AQIStandard } from "@/types/api";
 

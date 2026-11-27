@@ -1,3 +1,7 @@
+/**
+ * Zod schemas validating routine generation, transport comparisons, CADR sizing, and impact logs.
+ */
+
 import { COMMUTE_MODE_VALUES } from "@/lib/constants/commute-modes";
 import { z } from "zod";
 

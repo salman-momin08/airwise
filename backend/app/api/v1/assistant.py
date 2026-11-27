@@ -1,3 +1,5 @@
+"""Authenticated `/api/v1/assistant` chat, SSE streaming, and conversation history endpoints."""
+
 from __future__ import annotations
 
 import asyncio
@@ -37,6 +39,7 @@ Database = Annotated[AsyncSession, Depends(get_db_session)]
 AppSettings = Annotated[Settings, Depends(get_app_settings)]
 Meta = Annotated[ResponseMeta, Depends(get_response_meta)]
 
+
 @router.get("/capabilities", response_model=ApiResponse[dict[str, object]])
 async def get_assistant_capabilities(
     meta: Annotated[ResponseMeta, Depends(get_response_meta)],
@@ -54,6 +57,7 @@ async def get_assistant_capabilities(
         meta=meta,
     )
 
+
 @router.post(
     "/chat",
     response_model=ApiResponse[ChatResult],
@@ -66,6 +70,7 @@ async def chat(
     save_history = await service.authorize(payload)
     data = await service.run(payload, save_history=save_history)
     return ApiResponse(data=data, meta=meta)
+
 
 async def _produce_assistant_events(
     *,
@@ -104,6 +109,7 @@ async def _produce_assistant_events(
     finally:
         await queue.put(None)
 
+
 async def _stream_assistant_events(
     *,
     service: AssistantService,
@@ -133,6 +139,7 @@ async def _stream_assistant_events(
         with suppress(asyncio.CancelledError):
             await task
 
+
 @router.post("/chat/stream", dependencies=[Depends(enforce_csrf_protection)])
 async def stream_chat(
     payload: ChatRequest,
@@ -156,6 +163,7 @@ async def stream_chat(
         headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
     )
 
+
 @router.get("/conversations", response_model=ApiResponse[list[ConversationData]])
 async def list_conversations(
     principal: Principal,
@@ -164,6 +172,7 @@ async def list_conversations(
 ) -> ApiResponse[list[ConversationData]]:
     data = await AssistantRepository(db).list_conversations(user_id=principal.user_id)
     return ApiResponse(data=data, meta=meta)
+
 
 @router.get(
     "/conversations/{conversation_id}/messages",
@@ -180,6 +189,7 @@ async def list_messages(
     )
     return ApiResponse(data=data, meta=meta)
 
+
 @router.delete(
     "/conversations",
     response_model=ApiResponse[dict[str, str]],
@@ -193,6 +203,7 @@ async def delete_history(
     await AssistantRepository(db).delete_history(user_id=principal.user_id)
     await db.commit()
     return ApiResponse(data={"status": "deleted"}, meta=meta)
+
 
 @router.delete(
     "/conversations/{conversation_id}",

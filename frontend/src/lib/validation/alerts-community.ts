@@ -1,3 +1,7 @@
+/**
+ * Zod schemas validating smart alert rules, quiet hours, community creation, and moderation forms.
+ */
+
 import { z } from "zod";
 
 const hhmmRegex = /^(?:[01]\d|2[0-3]):[0-5]\d$/;

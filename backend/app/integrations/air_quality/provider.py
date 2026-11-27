@@ -1,3 +1,5 @@
+"""Circuit-breaker air quality provider router orchestrating primary-to-fallback failover."""
+
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
@@ -52,6 +54,7 @@ __all__ = [
     "reset_air_quality_circuit_breakers",
     "resolve_air_quality_adapter",
 ]
+
 
 class FailoverAirQualityClient:
     """Circuit-breaker-protected primary-to-fallback Air Quality adapter orchestrator."""
@@ -121,16 +124,12 @@ class FailoverAirQualityClient:
         raise last_error or ExternalProviderUnavailableError()
 
     async def fetch_city_measurements(self, city: str) -> NormalizedProviderPayload:
-        return await self._call_with_breakers(
-            lambda adapter: adapter.fetch_city_measurements(city)
-        )
+        return await self._call_with_breakers(lambda adapter: adapter.fetch_city_measurements(city))
 
     async def fetch_city_stations(self, city: str) -> list[NormalizedStationTelemetry]:
         return await self._call_with_breakers(lambda adapter: adapter.fetch_city_stations(city))
 
-    async def fetch_city_forecast(
-        self, city: str, hours: int = 24
-    ) -> NormalizedForecastPayload:
+    async def fetch_city_forecast(self, city: str, hours: int = 24) -> NormalizedForecastPayload:
         return await self._call_with_delegation(
             lambda adapter: adapter.fetch_city_forecast(city, hours=hours)
         )
@@ -142,6 +141,7 @@ class FailoverAirQualityClient:
             lambda adapter: adapter.fetch_city_history(city, period=period)
         )
 
+
 _CIRCUIT_BREAKERS: dict[str, ProviderCircuitBreaker] = {
     "openaq": ProviderCircuitBreaker("openaq"),
     "openweather": ProviderCircuitBreaker("openweather"),
@@ -150,9 +150,11 @@ _CIRCUIT_BREAKERS: dict[str, ProviderCircuitBreaker] = {
     "development_fixture": ProviderCircuitBreaker("development_fixture"),
 }
 
+
 def reset_air_quality_circuit_breakers() -> None:
     for breaker in _CIRCUIT_BREAKERS.values():
         breaker.reset()
+
 
 def _instantiate_single_adapter(
     provider_name: str, api_key: str
@@ -168,6 +170,7 @@ def _instantiate_single_adapter(
     if provider_name == "cpcb":
         return CPCBRegionalAdapter(api_key=api_key)
     return None
+
 
 def _resolve_fallback_adapter(settings: Settings) -> AirQualityProviderAdapter | None:
     fb_name = settings.air_quality_fallback_provider
@@ -189,6 +192,7 @@ def _resolve_fallback_adapter(settings: Settings) -> AirQualityProviderAdapter |
         return OpenWeatherAirQualityAdapter(api_key=ow_key)
     fb_key = settings.air_quality_fallback_api_key or settings.air_quality_api_key
     return _instantiate_single_adapter(fb_name, fb_key)
+
 
 def resolve_air_quality_adapter(settings: Settings) -> FailoverAirQualityClient:
     primary = _instantiate_single_adapter(

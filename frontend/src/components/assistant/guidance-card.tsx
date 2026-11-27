@@ -1,3 +1,7 @@
+/**
+ * Sanitized structured Copilot guidance card displaying verified telemetry, citations, and safety warnings.
+ */
+
 import { AQIBadge } from "@/components/air-quality/aqi-badge";
 import { ProvenanceBanner } from "@/components/air-quality/provenance-banner";
 import type { AssistantGuidance } from "@/types/assistant";

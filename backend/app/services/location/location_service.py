@@ -1,3 +1,5 @@
+"""Location search and saved-location management enforcing explicit geolocation precision."""
+
 from __future__ import annotations
 
 import uuid
@@ -91,6 +93,7 @@ SUPPORTED_GAZETTEER: tuple[GazetteerLocationMatch, ...] = (
     ),
 )
 
+
 def search_gazetteer(query: str) -> list[GazetteerLocationMatch]:
     needle = query.strip().lower()
     if not needle:
@@ -103,6 +106,7 @@ def search_gazetteer(query: str) -> list[GazetteerLocationMatch]:
         or entry.postal_prefix.startswith(needle[:3])
         or needle.startswith(entry.postal_prefix)
     ]
+
 
 class LocationService:
     """Service enforcing coarse-by-default location precision and user ownership."""
@@ -202,9 +206,7 @@ class LocationService:
 
         new_precision = record.location_precision
         if new_precision == "city":
-            self._repo.update_saved_location_coordinates(
-                record, latitude=None, longitude=None
-            )
+            self._repo.update_saved_location_coordinates(record, latitude=None, longitude=None)
         elif "latitude" in updates and "longitude" in updates:
             self._repo.update_saved_location_coordinates(
                 record,

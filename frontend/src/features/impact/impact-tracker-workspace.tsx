@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Household energy and clean-action impact calculator and action-logging workspace.
+ */
+
 import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";

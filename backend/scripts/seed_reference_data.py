@@ -6,6 +6,7 @@ import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import structlog
 from sqlalchemy import select
 
 from app.db.session import get_session_factory
@@ -48,6 +49,7 @@ STARTER_NEIGHBORHOOD_COMMUNITIES: tuple[dict[str, str], ...] = (
         "challenge_type": "public_transit_challenge",
     },
 )
+
 
 async def seed_emission_factors() -> int:
     now = datetime.now(tz=UTC)
@@ -123,9 +125,13 @@ async def seed_emission_factors() -> int:
         await session.commit()
     return len(REFERENCE_EMISSION_FACTORS)
 
+
 def main() -> None:
+    """Seed verified reference emission factors, data sources, and starter communities."""
+    logger = structlog.get_logger(__name__)
     seeded = asyncio.run(seed_emission_factors())
-    print(f"Seeded {seeded} verified reference emission factors.")
+    logger.info("reference_data_seeded", emission_factors_count=seeded)
+
 
 if __name__ == "__main__":
     main()

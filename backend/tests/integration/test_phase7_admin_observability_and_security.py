@@ -9,11 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.models.identity import User
 
+
 def _csrf(client: AsyncClient) -> dict[str, str]:
     return {
-        "X-CSRF-Token": client.cookies.get("airwise_csrf", ""),
+        "X-CSRF-Token": client.cookies.get("airwise_csrf") or "",
         "Origin": "http://localhost:3000",
     }
+
 
 async def _register(client: AsyncClient, email: str, name: str) -> uuid.UUID:
     res = await client.post(
@@ -26,6 +28,7 @@ async def _register(client: AsyncClient, email: str, name: str) -> uuid.UUID:
     )
     assert res.status_code == 201
     return uuid.UUID(str(res.json()["data"]["user_id"]))
+
 
 async def test_admin_rbac_self_lockout_guard_session_revocation_and_audit_redaction(
     api_client: AsyncClient,
@@ -44,7 +47,7 @@ async def test_admin_rbac_self_lockout_guard_session_revocation_and_audit_redact
         assert (await api_client.get(path)).status_code == 401
 
     regular_id = await _register(api_client, "member@example.com", "Regular User")
-    regular_session = api_client.cookies.get("airwise_session", "")
+    regular_session = api_client.cookies.get("airwise_session") or ""
     for path in (
         "/api/v1/admin/overview",
         "/api/v1/admin/users",
@@ -129,6 +132,7 @@ async def test_admin_rbac_self_lockout_guard_session_revocation_and_audit_redact
     # Verify suspended user's previous session cookie is rejected (401)
     api_client.cookies.set("airwise_session", regular_session)
     assert (await api_client.get("/api/v1/users/me")).status_code == 401
+
 
 async def test_readiness_security_headers_prometheus_metrics_and_cached_aqi_latency_budget(
     api_client: AsyncClient,

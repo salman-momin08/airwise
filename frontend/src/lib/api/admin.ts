@@ -1,3 +1,7 @@
+/**
+ * Typed `/api/v1/admin/*` API client methods for platform governance.
+ */
+
 import { apiRequest } from "@/lib/api/client";
 import type {
   AdminAIMonitoring,

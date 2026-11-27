@@ -1,4 +1,4 @@
-"""Create air quality sources, stations, range-partitioned measurements, forecasts, and weather observations tables.
+"""Create environmental telemetry sources, stations, measurements, forecasts, and weather tables.
 
 Revision ID: 20261125_0002
 Revises: 20261124_0001
@@ -10,17 +10,20 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from geoalchemy2 import Geography
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = "20261125_0002"
 down_revision: str | None = "20261124_0001"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
+
 def _is_postgresql() -> bool:
     return op.get_bind().dialect.name == "postgresql"
+
 
 def upgrade() -> None:
     is_pg = _is_postgresql()
@@ -228,6 +231,7 @@ def upgrade() -> None:
         ["city", "observed_at"],
         unique=False,
     )
+
 
 def downgrade() -> None:
     is_pg = _is_postgresql()

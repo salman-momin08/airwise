@@ -3,10 +3,10 @@
 help: ## Display available development commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-22s\033[0m %s\n", $$1, $$2}'
 
-setup: ## Copy example environment files if missing
-	@test -f backend/.env || cp backend/.env.example backend/.env
-	@test -f frontend/.env.local || cp frontend/.env.example frontend/.env.local
-	@echo "Environment files initialized. Review backend/.env and frontend/.env.local."
+setup: ## Copy unified root environment template if missing
+	@test -f .env || cp .env.example .env
+	@test -f frontend/.env.local || grep '^NEXT_PUBLIC_' .env.example > frontend/.env.local
+	@echo "Environment files initialized from root .env.example (.env and frontend/.env.local)."
 
 up: ## Build and start full local Docker Compose stack
 	docker compose up --build -d
@@ -26,12 +26,12 @@ migrate: ## Run Alembic database migrations inside backend container
 seed: ## Seed reference AQI standards, emission factors, and labeled dev fixtures
 	docker compose exec backend python -m scripts.seed_reference_data
 
-lint: ## Run Ruff (backend) and ESLint (frontend)
-	cd backend && ruff check app scripts tests
+lint: ## Run Ruff lint & format check (backend) and ESLint (frontend)
+	cd backend && ruff check app scripts tests alembic ../api && ruff format --check app scripts tests alembic ../api
 	cd frontend && npm run lint
 
-typecheck: ## Run MyPy (backend) and TypeScript tsc --noEmit (frontend)
-	cd backend && mypy app
+typecheck: ## Run strict MyPy (backend) and TypeScript tsc --noEmit (frontend)
+	cd backend && mypy app scripts tests ../api
 	cd frontend && npm run typecheck
 
 test: ## Run Pytest (backend) and Vitest (frontend)

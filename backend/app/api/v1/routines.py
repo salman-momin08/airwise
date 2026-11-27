@@ -1,3 +1,5 @@
+"""Smog-aware Morning?Night daily routine planner and window comparison endpoints."""
+
 from __future__ import annotations
 
 import uuid
@@ -31,6 +33,7 @@ Database = Annotated[AsyncSession, Depends(get_db_session)]
 AppSettings = Annotated[Settings, Depends(get_app_settings)]
 Meta = Annotated[ResponseMeta, Depends(get_response_meta)]
 
+
 @router.post(
     "/generate",
     status_code=201,
@@ -49,6 +52,7 @@ async def generate_daily_routine(
     routine = await service.generate_draft_routine(user_id=principal.user_id, payload=payload)
     return ApiResponse(data=routine, meta=meta)
 
+
 @router.get("", response_model=ApiResponse[list[DailyRoutineSchema]])
 async def list_daily_routines(
     principal: Principal,
@@ -59,6 +63,7 @@ async def list_daily_routines(
     service = RoutinePlannerService(session=db, settings=settings)
     routines = await service.list_routines(user_id=principal.user_id)
     return ApiResponse(data=routines, meta=meta)
+
 
 @router.get("/{routine_id}", response_model=ApiResponse[DailyRoutineSchema])
 async def get_daily_routine(
@@ -71,6 +76,7 @@ async def get_daily_routine(
     service = RoutinePlannerService(session=db, settings=settings)
     routine = await service.get_routine(user_id=principal.user_id, routine_id=routine_id)
     return ApiResponse(data=routine, meta=meta)
+
 
 @router.patch(
     "/{routine_id}",
@@ -92,6 +98,7 @@ async def update_daily_routine(
         payload=payload,
     )
     return ApiResponse(data=updated, meta=meta)
+
 
 @router.delete(
     "/{routine_id}",

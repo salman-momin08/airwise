@@ -1,3 +1,7 @@
+/**
+ * Typed `/api/v1/assistant/*` SSE stream parser and conversation history client.
+ */
+
 import { apiFetch, apiRequest, ApiClientError } from "@/lib/api/client";
 import { assistantEventSchema, type ChatFormValues } from "@/lib/validation/assistant";
 import type { AssistantEvent, ChatMessage, ChatResult, Conversation } from "@/types/assistant";

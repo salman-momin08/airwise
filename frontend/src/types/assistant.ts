@@ -1,3 +1,7 @@
+/**
+ * TypeScript DTO contracts for AirWise Copilot conversations, SSE events, and citations.
+ */
+
 import type { z } from "zod";
 import type {
   assistantEventSchema,

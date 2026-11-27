@@ -1,3 +1,5 @@
+"""User-scoped repository for Copilot conversations, messages, tool traces, and erasure."""
+
 from __future__ import annotations
 
 import uuid
@@ -8,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ResourceNotFoundError
 from app.models.assistant import AIGenerationMetadata, ChatConversation, ChatMessage
 from app.schemas.assistant import AssistantGuidance, ChatResult, ConversationData, MessageData
+
 
 class AssistantRepository:
     def __init__(self, session: AsyncSession) -> None:

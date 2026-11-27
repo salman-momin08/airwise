@@ -1,4 +1,4 @@
-"""Create emission factors, user actions, impact estimates, daily routines, routine activities, recommendations, and recommendation feedback tables.
+"""Create emission factors, user actions, impact estimates, routines, and recommendations tables.
 
 Revision ID: 20261126_0004
 Revises: 20261126_0003
@@ -10,13 +10,15 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = "20261126_0004"
 down_revision: str | None = "20261126_0003"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
+
 
 def upgrade() -> None:
     is_pg = op.get_bind().dialect.name == "postgresql"
@@ -52,9 +54,7 @@ def upgrade() -> None:
         sa.Column("is_self_reported", sa.Boolean(), nullable=False, server_default=bool_true),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_index(
-        "ix_user_actions_user_occurred", "user_actions", ["user_id", "occurred_at"]
-    )
+    op.create_index("ix_user_actions_user_occurred", "user_actions", ["user_id", "occurred_at"])
 
     op.create_table(
         "impact_estimates",
@@ -77,9 +77,7 @@ def upgrade() -> None:
         sa.Column("confidence", sa.String(length=16), nullable=False),
         sa.Column("is_estimate", sa.Boolean(), nullable=False, server_default=bool_true),
         sa.Column("calculated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.CheckConstraint(
-            "is_estimate = true", name="ck_impact_estimates_is_estimate_true"
-        ),
+        sa.CheckConstraint("is_estimate = true", name="ck_impact_estimates_is_estimate_true"),
     )
     op.create_index(
         "ix_impact_estimates_user_calculated",
@@ -106,9 +104,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_index(
-        "ix_daily_routines_user_plan_date", "daily_routines", ["user_id", "plan_date"]
-    )
+    op.create_index("ix_daily_routines_user_plan_date", "daily_routines", ["user_id", "plan_date"])
 
     op.create_table(
         "routine_activities",
@@ -137,9 +133,7 @@ def upgrade() -> None:
         ),
         sa.Column("confidence", sa.String(length=16), nullable=False, server_default="medium"),
     )
-    op.create_index(
-        "ix_routine_activities_routine_id", "routine_activities", ["routine_id"]
-    )
+    op.create_index("ix_routine_activities_routine_id", "routine_activities", ["routine_id"])
 
     op.create_table(
         "recommendations",
@@ -191,10 +185,9 @@ def upgrade() -> None:
         ["recommendation_id", "user_id"],
     )
 
+
 def downgrade() -> None:
-    op.drop_index(
-        "ix_recommendation_feedback_rec_user", table_name="recommendation_feedback"
-    )
+    op.drop_index("ix_recommendation_feedback_rec_user", table_name="recommendation_feedback")
     op.drop_table("recommendation_feedback")
     op.drop_index("ix_recommendations_user_valid_until", table_name="recommendations")
     op.drop_table("recommendations")

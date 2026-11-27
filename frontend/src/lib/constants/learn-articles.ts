@@ -1,3 +1,7 @@
+/**
+ * Curated science-backed educational articles on AQI standards, winter smog, and filtration.
+ */
+
 export interface LearnArticle {
   slug: string;
   title: string;

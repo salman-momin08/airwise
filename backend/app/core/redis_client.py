@@ -1,3 +1,5 @@
+"""Async Redis client factory with serverless TLS normalization and timeout defaults."""
+
 from __future__ import annotations
 
 from redis.asyncio import Redis
@@ -5,6 +7,7 @@ from redis.backoff import ExponentialBackoff
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
 from redis.retry import Retry
+
 
 def create_async_redis_client(url: str, *, decode_responses: bool = True) -> Redis:
     """Create a serverless-resilient async Redis client with idle health checks and retry."""

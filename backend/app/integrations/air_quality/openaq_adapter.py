@@ -1,3 +1,5 @@
+"""OpenAQ v3 ground-station air quality telemetry and bounding-box discovery adapter."""
+
 from __future__ import annotations
 
 import asyncio
@@ -30,6 +32,7 @@ _POLLUTANT_NAME_MAP: dict[str, PollutantCode] = {
     "o3": PollutantCode.O3,
 }
 
+
 @dataclass(frozen=True)
 class _PendingOpenAQLocation:
     last_seen: datetime
@@ -38,6 +41,7 @@ class _PendingOpenAQLocation:
     latitude: float
     longitude: float
     sensor_map: dict[int, tuple[str, str]]
+
 
 class OpenAQAirQualityAdapter:
     """Live OpenAQ v3 REST adapter normalizing physical ground-station readings."""
@@ -69,12 +73,7 @@ class OpenAQAirQualityAdapter:
         code = _POLLUTANT_NAME_MAP.get(param_name.strip().lower())
         if code is None or value < 0:
             return None
-        unit_clean = (
-            raw_unit.strip()
-            .lower()
-            .replace("µg/m³", "ug/m3")
-            .replace("μg/m³", "ug/m3")
-        )
+        unit_clean = raw_unit.strip().lower().replace("µg/m³", "ug/m3").replace("μg/m³", "ug/m3")
         if code == PollutantCode.CO and unit_clean == "ug/m3":
             return (code, round(value / 1000.0, 4), "mg/m3")
         if unit_clean in {"ug/m3", "mg/m3", "ppb", "ppm"}:
@@ -86,7 +85,7 @@ class OpenAQAirQualityAdapter:
         if not isinstance(raw_dt, str) or not raw_dt:
             return None
         try:
-            return datetime.fromisoformat(raw_dt.replace("Z", "+00:00"))
+            return datetime.fromisoformat(raw_dt)
         except ValueError:
             return None
 
@@ -325,9 +324,7 @@ class OpenAQAirQualityAdapter:
             measurements=averaged,
         )
 
-    async def fetch_city_forecast(
-        self, city: str, hours: int = 24
-    ) -> NormalizedForecastPayload:
+    async def fetch_city_forecast(self, city: str, hours: int = 24) -> NormalizedForecastPayload:
         raise ExternalProviderUnavailableError(
             code="AIR_QUALITY_FORECAST_DELEGATED",
             message=(

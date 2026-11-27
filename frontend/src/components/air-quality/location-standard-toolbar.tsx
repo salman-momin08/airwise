@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * City selector and explicit India NAQI / US EPA AQI standard toggle toolbar.
+ */
+
 import type { AQIStandard, SavedLocation } from "@/types/api";
 
 const SUPPORTED_CITIES = [

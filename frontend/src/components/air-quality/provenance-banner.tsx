@@ -1,3 +1,7 @@
+/**
+ * Data provenance, measurement timestamp, staleness, and development-fixture disclosure banner.
+ */
+
 interface ProvenanceBannerProps {
   provider: string;
   sourceType: "station" | "model" | "unavailable";

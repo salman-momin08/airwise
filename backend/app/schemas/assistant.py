@@ -1,3 +1,5 @@
+"""Pydantic v2 DTOs for Copilot chat turns, structured guidance cards, and verified citations."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -26,8 +28,10 @@ ToolName = Literal[
     "get_community_initiatives",
 ]
 
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, allow_inf_nan=False)
+
 
 class TransportCalculation(StrictModel):
     kind: Literal["transport"]
@@ -38,6 +42,7 @@ class TransportCalculation(StrictModel):
     alternative_occupancy: float = Field(gt=0, le=1000)
     factor_source_reference: str = Field(min_length=3, max_length=300)
 
+
 class ExposureCalculation(StrictModel):
     kind: Literal["exposure"]
     outdoor_pm25_ug_m3: float = Field(ge=0, le=10000)
@@ -45,6 +50,7 @@ class ExposureCalculation(StrictModel):
     baseline_env_modifier: float = Field(ge=0, le=10)
     alternative_env_modifier: float = Field(ge=0, le=10)
     assumption_note: str = Field(min_length=3, max_length=300)
+
 
 class ChatRequest(StrictModel):
     message: str = Field(min_length=1, max_length=2000)
@@ -57,13 +63,16 @@ class ChatRequest(StrictModel):
         Annotated[TransportCalculation | ExposureCalculation, Field(discriminator="kind")] | None
     ) = None
 
+
 class ToolCall(StrictModel):
     name: ToolName
     period: Literal["24h", "7d", "30d"] = "24h"
     hours: int = Field(default=24, ge=6, le=72)
 
+
 class ToolPlan(StrictModel):
     calls: list[ToolCall] = Field(default_factory=list, max_length=4)
+
 
 class GeneratedGuidance(StrictModel):
     situation_summary: ShortText
@@ -73,6 +82,7 @@ class GeneratedGuidance(StrictModel):
     safer_alternative: ShortText | None = None
     evidence_document_ids: list[UUID] = Field(default_factory=list, max_length=6)
 
+
 class EvidenceReference(StrictModel):
     document_id: UUID
     title: str
@@ -81,11 +91,13 @@ class EvidenceReference(StrictModel):
     last_reviewed_date: datetime
     freshness_note: str | None = None
 
+
 class EnvironmentalConditions(BaseModel):
     standard: AQIStandard
     status: Literal["available", "unavailable"]
     reading: CurrentAirQualitySchema | None = None
     notice: str
+
 
 class AssistantGuidance(BaseModel):
     situation_summary: str
@@ -97,6 +109,7 @@ class AssistantGuidance(BaseModel):
     safer_alternative: str | None = None
     evidence_references: list[EvidenceReference] = Field(default_factory=list)
 
+
 class GenerationInfo(BaseModel):
     request_id: str
     provider: str
@@ -107,6 +120,7 @@ class GenerationInfo(BaseModel):
     is_fallback: bool
     fallback_reason: str | None = None
 
+
 class ChatResult(BaseModel):
     conversation_id: UUID | None
     message_id: UUID | None
@@ -115,9 +129,11 @@ class ChatResult(BaseModel):
     generation: GenerationInfo
     tools_used: list[str]
 
+
 class ConversationData(BaseModel):
     id: UUID
     created_at: datetime
+
 
 class MessageData(BaseModel):
     id: UUID

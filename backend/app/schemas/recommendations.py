@@ -1,3 +1,5 @@
+"""Pydantic v2 DTOs for exposure-first daily recommendation cards and feedback."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -25,6 +27,7 @@ RecommendationFeedbackStatusLiteral = Literal[
     "dismissed",
 ]
 
+
 class GenerateRecommendationsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -34,11 +37,13 @@ class GenerateRecommendationsRequest(BaseModel):
     use_ai_phrasing: bool = False
     ai_consent: bool = False
 
+
 class RecommendationFeedbackRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     status: RecommendationFeedbackStatusLiteral
     note: str | None = Field(default=None, max_length=500)
+
 
 class RecommendationFeedbackSchema(BaseModel):
     id: UUID
@@ -46,6 +51,7 @@ class RecommendationFeedbackSchema(BaseModel):
     status: RecommendationFeedbackStatusLiteral
     note: str | None = None
     created_at: datetime
+
 
 class RecommendationCardSchema(BaseModel):
     id: UUID
@@ -65,12 +71,15 @@ class RecommendationCardSchema(BaseModel):
     valid_until: datetime
     created_at: datetime
 
+
 class GeneratedCardPhrasing(StrictModel):
     category: RecommendationCategoryLiteral
     reason: str = Field(min_length=12, max_length=500)
 
+
 class GeneratedRecommendationsBatch(StrictModel):
     cards: list[GeneratedCardPhrasing] = Field(min_length=1, max_length=5)
+
 
 class ScreenedAlternativeSchema(BaseModel):
     category: Literal["transport", "household_sustainability", "indoor_air"]

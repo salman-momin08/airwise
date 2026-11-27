@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Interactive MapLibre station map paired with an accessible keyboard-navigable station list.
+ */
+
 import { useEffect, useRef, useState } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { AQIBadge } from "@/components/air-quality/aqi-badge";

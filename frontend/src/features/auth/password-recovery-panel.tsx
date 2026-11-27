@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Forgot-password and single-use token password reset forms.
+ */
+
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";

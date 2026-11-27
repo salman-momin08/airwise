@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Full-featured public and authenticated city air quality explorer workspace.
+ */
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";

@@ -1,3 +1,5 @@
+"""User profile, consented preferences, GDPR data export, and right-to-erasure service."""
+
 from __future__ import annotations
 
 import uuid
@@ -30,10 +32,12 @@ from app.schemas.identity import (
     UserProfileData,
 )
 
+
 def _ensure_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
 
 def serialize_saved_location(record: SavedLocation) -> SavedLocationData:
     return SavedLocationData(
@@ -51,6 +55,7 @@ def serialize_saved_location(record: SavedLocation) -> SavedLocationData:
         is_primary=record.is_primary,
         created_at=_ensure_utc(record.created_at),
     )
+
 
 def _serialize_user_me(user: User) -> UserMeData:
     now = datetime.now(tz=UTC)
@@ -92,9 +97,7 @@ def _serialize_user_me(user: User) -> UserMeData:
         work_schedule=work_sched,
         school_schedule=school_sched,
         commute_modes=(
-            [cast(CommuteModeLiteral, m) for m in prefs.commute_modes]
-            if prefs is not None
-            else []
+            [cast(CommuteModeLiteral, m) for m in prefs.commute_modes] if prefs is not None else []
         ),
         cooking_type=prefs.cooking_type if prefs is not None else None,
         ventilation_type=prefs.ventilation_type if prefs is not None else None,
@@ -122,6 +125,7 @@ def _serialize_user_me(user: User) -> UserMeData:
         profile=profile_data,
         preferences=prefs_data,
     )
+
 
 class UserAccountService:
     """Service managing user profile, consented household preferences, export, and erasure."""
@@ -202,9 +206,7 @@ class UserAccountService:
         changed_sections: list[str] = []
 
         if payload.profile is not None:
-            self._apply_profile_patch(
-                user, payload.profile.model_dump(exclude_unset=True), now
-            )
+            self._apply_profile_patch(user, payload.profile.model_dump(exclude_unset=True), now)
             changed_sections.append("profile")
 
         if payload.preferences is not None:

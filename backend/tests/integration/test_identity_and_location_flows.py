@@ -9,12 +9,14 @@ from httpx import AsyncClient
 from alembic import command
 from app.integrations.email.provider import ConsoleEmailProvider
 
+
 def _csrf_headers(client: AsyncClient) -> dict[str, str]:
-    csrf = client.cookies.get("airwise_csrf", "")
+    csrf = client.cookies.get("airwise_csrf") or ""
     return {
         "X-CSRF-Token": csrf,
         "Origin": "http://localhost:3000",
     }
+
 
 async def test_registration_profile_locations_export_and_deletion(
     api_client: AsyncClient,
@@ -24,9 +26,7 @@ async def test_registration_profile_locations_export_and_deletion(
     assert guest_me.status_code == 200
     assert guest_me.json()["data"]["role"] == "guest"
 
-    guest_aqi = await api_client.get(
-        "/api/v1/air-quality/current?city=Delhi&standard=india_naqi"
-    )
+    guest_aqi = await api_client.get("/api/v1/air-quality/current?city=Delhi&standard=india_naqi")
     assert guest_aqi.status_code == 200
     assert guest_aqi.json()["data"]["standard"] == "india_naqi"
 
@@ -52,13 +52,11 @@ async def test_registration_profile_locations_export_and_deletion(
 
     # Verify email via single-use token extracted from outbox link
     verify_body = ConsoleEmailProvider.last_outbox[0].text_body
-    verify_url = next(
-        line for line in verify_body.splitlines() if "verify_token=" in line
-    ).split(": ")[1]
+    verify_url = next(line for line in verify_body.splitlines() if "verify_token=" in line).split(
+        ": "
+    )[1]
     verify_token = parse_qs(urlparse(verify_url).query)["verify_token"][0]
-    verify_res = await api_client.post(
-        "/api/v1/auth/verify-email", json={"token": verify_token}
-    )
+    verify_res = await api_client.post("/api/v1/auth/verify-email", json={"token": verify_token})
     assert verify_res.status_code == 200
 
     # 3. Update profile & household preferences with CSRF protection
@@ -131,6 +129,7 @@ async def test_registration_profile_locations_export_and_deletion(
     after_del = await api_client.get("/api/v1/users/me")
     assert after_del.status_code == 401
 
+
 async def test_password_reset_revokes_existing_sessions(api_client: AsyncClient) -> None:
     await api_client.post(
         "/api/v1/auth/register",
@@ -173,6 +172,7 @@ async def test_password_reset_revokes_existing_sessions(api_client: AsyncClient)
         json={"email": "arjun@example.com", "password": "RotatedSecurePass2026"},
     )
     assert good_login.status_code == 200
+
 
 def test_alembic_reversible_migration_up_and_down(tmp_path: Path, monkeypatch: object) -> None:
     from app.core.config import get_settings

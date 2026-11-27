@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Self-service GDPR JSON account export, chat history controls, and right-to-erasure panel.
+ */
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";

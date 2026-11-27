@@ -1,3 +1,5 @@
+"""Authentication, session rotation, password recovery, email verification, and OAuth endpoints."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -38,8 +40,10 @@ from app.services.auth.oauth import GoogleOAuthAdapterStub
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+
 def _build_auth_service(db: AsyncSession, settings: Settings) -> AuthService:
     return AuthService(session=db, settings=settings, email_provider=get_email_provider())
+
 
 @router.post(
     "/register",
@@ -65,6 +69,7 @@ async def register_account(
     attach_session_cookies(response, bundle, settings)
     return ApiResponse(data=bundle.principal, meta=meta)
 
+
 @router.post("/login", response_model=ApiResponse[AuthPrincipalData])
 async def login_account(
     payload: LoginRequest,
@@ -84,6 +89,7 @@ async def login_account(
     )
     attach_session_cookies(response, bundle, settings)
     return ApiResponse(data=bundle.principal, meta=meta)
+
 
 @router.post(
     "/logout",
@@ -107,6 +113,7 @@ async def logout_account(
     clear_session_cookies(response, settings)
     return ApiResponse(data={"status": "logged_out"}, meta=meta)
 
+
 @router.post(
     "/refresh",
     response_model=ApiResponse[AuthPrincipalData],
@@ -129,6 +136,7 @@ async def rotate_session_token(
     attach_session_cookies(response, bundle, settings)
     return ApiResponse(data=bundle.principal, meta=meta)
 
+
 @router.post("/forgot-password", response_model=ApiResponse[dict[str, str]])
 async def forgot_password(
     payload: ForgotPasswordRequest,
@@ -144,12 +152,12 @@ async def forgot_password(
     return ApiResponse(
         data={
             "message": (
-                "If an account exists for that email address, "
-                "a password reset link has been sent."
+                "If an account exists for that email address, a password reset link has been sent."
             )
         },
         meta=meta,
     )
+
 
 @router.post("/reset-password", response_model=ApiResponse[dict[str, str]])
 async def reset_password(
@@ -167,6 +175,7 @@ async def reset_password(
     clear_session_cookies(response, settings)
     return ApiResponse(data={"status": "password_reset_completed"}, meta=meta)
 
+
 @router.post("/verify-email", response_model=ApiResponse[dict[str, str]])
 async def verify_email_address(
     payload: VerifyEmailRequest,
@@ -178,6 +187,7 @@ async def verify_email_address(
     service = _build_auth_service(db, settings)
     await service.verify_email(payload.token, client_ip=get_client_ip(request))
     return ApiResponse(data={"status": "email_verified"}, meta=meta)
+
 
 @router.get("/me", response_model=ApiResponse[AuthPrincipalData])
 async def get_current_session_principal(
@@ -197,6 +207,7 @@ async def get_current_session_principal(
         meta=meta,
     )
 
+
 @router.get("/sessions", response_model=ApiResponse[list[SessionItem]])
 async def list_active_sessions(
     principal: Annotated[AuthenticatedPrincipal, Depends(require_authenticated_user)],
@@ -210,6 +221,7 @@ async def list_active_sessions(
         current_session_id=principal.session_id,
     )
     return ApiResponse(data=sessions, meta=meta)
+
 
 @router.delete(
     "/sessions/{session_id}",
@@ -235,6 +247,7 @@ async def revoke_session(
         clear_session_cookies(response, settings)
     return ApiResponse(data={"status": "session_revoked"}, meta=meta)
 
+
 @router.post(
     "/sessions/revoke-others",
     response_model=ApiResponse[dict[str, int]],
@@ -254,6 +267,7 @@ async def revoke_other_sessions(
         client_ip=get_client_ip(request),
     )
     return ApiResponse(data={"revoked_count": revoked}, meta=meta)
+
 
 @router.get("/oauth/google/status", response_model=ApiResponse[dict[str, object]])
 async def get_google_oauth_status(

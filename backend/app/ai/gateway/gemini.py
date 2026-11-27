@@ -1,3 +1,5 @@
+"""Gemini REST API gateway with structured schema validation, retries, and circuit breaking."""
+
 from __future__ import annotations
 
 import asyncio
@@ -18,8 +20,10 @@ from app.models.assistant import EMBEDDING_DIMENSIONS
 logger = structlog.get_logger(__name__)
 OutputModel = TypeVar("OutputModel", bound=BaseModel)
 
+
 class OutputValidationError(ValueError):
     """The provider returned content outside the requested output contract."""
+
 
 class LLMGateway(Protocol):
     model_name: str
@@ -33,35 +37,44 @@ class LLMGateway(Protocol):
         self, text: str, *, task: Literal["RETRIEVAL_QUERY", "RETRIEVAL_DOCUMENT"]
     ) -> list[float]: ...
 
+
 class GeminiPart(BaseModel):
     text: str = ""
     thought: bool = False
 
+
 class GeminiContent(BaseModel):
     parts: list[GeminiPart] = Field(default_factory=list)
+
 
 class GeminiCandidate(BaseModel):
     content: GeminiContent = Field(default_factory=GeminiContent)
     finish_reason: str = Field(default="", alias="finishReason")
 
+
 class GeminiUsage(BaseModel):
     total_token_count: int = Field(default=0, ge=0, alias="totalTokenCount")
+
 
 class GeminiResponse(BaseModel):
     candidates: list[GeminiCandidate] = Field(default_factory=list, max_length=1)
     usage_metadata: GeminiUsage = Field(default_factory=GeminiUsage, alias="usageMetadata")
 
+
 class GeminiEmbedding(BaseModel):
     values: list[float] = Field(min_length=EMBEDDING_DIMENSIONS, max_length=EMBEDDING_DIMENSIONS)
 
+
 class GeminiEmbeddingResponse(BaseModel):
     embedding: GeminiEmbedding
+
 
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/"
 _GEMINI_TIMEOUT = httpx.Timeout(20.0, connect=3.0)
 _GEMINI_LIMITS = httpx.Limits(max_keepalive_connections=10, max_connections=30)
 _shared_gemini_client: httpx.AsyncClient | None = None
 _shared_gemini_loop: asyncio.AbstractEventLoop | None = None
+
 
 def _get_shared_gemini_client() -> httpx.AsyncClient:
     global _shared_gemini_client, _shared_gemini_loop
@@ -80,6 +93,7 @@ def _get_shared_gemini_client() -> httpx.AsyncClient:
         _shared_gemini_loop = current_loop
     return _shared_gemini_client
 
+
 async def close_gemini_http_client() -> None:
     """Close pooled Gemini HTTP client on application shutdown."""
     global _shared_gemini_client, _shared_gemini_loop
@@ -89,11 +103,26 @@ async def close_gemini_http_client() -> None:
     if client is not None and not client.is_closed:
         await client.aclose()
 
+
 class GeminiGateway:
     """Backend-only Gemini REST adapter with pooled connections, retries, and circuit breaker."""
 
     _failures = 0
     _open_until = 0.0
+
+    @classmethod
+    def _reset_circuit(cls) -> None:
+        cls._failures = 0
+
+    @classmethod
+    def _record_circuit_failure(cls) -> None:
+        cls._failures += 1
+        if cls._failures >= 3:
+            cls._open_until = time.monotonic() + 30.0
+
+    @classmethod
+    def _is_circuit_open(cls) -> bool:
+        return time.monotonic() < cls._open_until
 
     def __init__(
         self,
@@ -136,7 +165,7 @@ class GeminiGateway:
                     await asyncio.sleep(min(delay, 1.5))
                     continue
                 response.raise_for_status()
-                type(self)._failures = 0
+                self._reset_circuit()
                 return response
             except (httpx.HTTPError, httpx.InvalidURL) as exc:
                 # Exception strings can include request details: log only the class.
@@ -144,9 +173,7 @@ class GeminiGateway:
                 if attempt == 0 and isinstance(exc, httpx.TransportError):
                     await asyncio.sleep(0.5)
                     continue
-                type(self)._failures += 1
-                if type(self)._failures >= 3:
-                    type(self)._open_until = time.monotonic() + 30
+                self._record_circuit_failure()
                 raise ExternalProviderUnavailableError(
                     code="AI_PROVIDER_UNAVAILABLE",
                     message="Gemini is temporarily unavailable.",
@@ -158,7 +185,7 @@ class GeminiGateway:
             raise ExternalProviderUnavailableError(
                 code="AI_NOT_CONFIGURED", message="The Gemini API key has not been configured."
             )
-        if time.monotonic() < type(self)._open_until:
+        if self._is_circuit_open():
             raise ExternalProviderUnavailableError(
                 code="AI_CIRCUIT_OPEN",
                 message="Gemini is temporarily unavailable; try again shortly.",
@@ -172,9 +199,7 @@ class GeminiGateway:
             ) as isolated_client:
                 return await self._post_with_client(isolated_client, model, method, body)
 
-        return await self._post_with_client(
-            _get_shared_gemini_client(), model, method, body
-        )
+        return await self._post_with_client(_get_shared_gemini_client(), model, method, body)
 
     async def generate(self, *, system: str, prompt: str, schema: type[OutputModel]) -> OutputModel:
         if len(prompt) > 24000 or len(system) > 12000:

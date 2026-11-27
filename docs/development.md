@@ -13,11 +13,11 @@
 
 ## 2. Environment Configuration
 
-Copy the templates and review settings:
+Copy the unified root template and review settings:
 
 ```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env.local
+cp .env.example .env
+grep '^NEXT_PUBLIC_' .env.example > frontend/.env.local
 ```
 
 ### Labeled Development Fixture Mode

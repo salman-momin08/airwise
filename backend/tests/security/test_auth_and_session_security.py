@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from httpx import AsyncClient
 
+
 def _extract_auth_cookies(client: AsyncClient) -> tuple[str, str]:
     return (
-        client.cookies.get("airwise_session", ""),
-        client.cookies.get("airwise_csrf", ""),
+        client.cookies.get("airwise_session") or "",
+        client.cookies.get("airwise_csrf") or "",
     )
+
 
 async def test_csrf_and_untrusted_origin_rejection(api_client: AsyncClient) -> None:
     await api_client.post(
@@ -27,16 +29,31 @@ async def test_csrf_and_untrusted_origin_rejection(api_client: AsyncClient) -> N
     assert no_csrf.json()["error"]["code"] == "AUTH_CSRF_INVALID"
 
     # Valid CSRF header but untrusted Origin -> 403 AUTH_CSRF_INVALID
+    csrf_tok = api_client.cookies.get("airwise_csrf") or ""
     bad_origin = await api_client.patch(
         "/api/v1/users/me",
         headers={
-            "X-CSRF-Token": api_client.cookies.get("airwise_csrf", ""),
+            "X-CSRF-Token": csrf_tok,
             "Origin": "https://malicious.example.org",
         },
         json={"profile": {"display_name": "Attacker"}},
     )
     assert bad_origin.status_code == 403
     assert bad_origin.json()["error"]["code"] == "AUTH_CSRF_INVALID"
+
+    # Sandboxed iframe `Origin: null` or malformed Origin -> 403 AUTH_CSRF_INVALID
+    for spoofed_origin in ("null", "not-a-valid-origin"):
+        null_origin = await api_client.patch(
+            "/api/v1/users/me",
+            headers={
+                "X-CSRF-Token": csrf_tok,
+                "Origin": spoofed_origin,
+            },
+            json={"profile": {"display_name": "Attacker"}},
+        )
+        assert null_origin.status_code == 403
+        assert null_origin.json()["error"]["code"] == "AUTH_CSRF_INVALID"
+
 
 async def test_cross_user_idor_location_and_session_isolation(api_client: AsyncClient) -> None:
     # Register User A and create a saved location
@@ -113,6 +130,7 @@ async def test_cross_user_idor_location_and_session_isolation(api_client: AsyncC
     alice_check = await api_client.get("/api/v1/locations")
     assert len(alice_check.json()["data"]) == 1
 
+
 async def test_rotated_session_reuse_detection_invalidates_all_sessions(
     api_client: AsyncClient,
 ) -> None:
@@ -148,6 +166,7 @@ async def test_rotated_session_reuse_detection_invalidates_all_sessions(
     me_after_replay = await api_client.get("/api/v1/users/me")
     assert me_after_replay.status_code == 401
 
+
 async def test_vercel_cron_endpoint_enforces_bearer_secret(api_client: AsyncClient) -> None:
     unauth = await api_client.get("/api/v1/system/cron/daily-maintenance")
     assert unauth.status_code == 403
@@ -165,6 +184,7 @@ async def test_vercel_cron_endpoint_enforces_bearer_secret(api_client: AsyncClie
     assert ok.status_code == 200
     assert ok.json()["data"]["status"] == "completed"
 
+
 async def test_http_security_headers_and_sensitive_cache_control(
     api_client: AsyncClient,
 ) -> None:
@@ -180,3 +200,27 @@ async def test_http_security_headers_and_sensitive_cache_control(
     me_res = await api_client.get("/api/v1/auth/me")
     assert me_res.status_code == 200
     assert me_res.headers["Cache-Control"] == "no-store"
+
+    # Unknown routes and disallowed HTTP methods return canonical ErrorResponse envelopes
+    missing_route = await api_client.get("/api/v1/nonexistent-endpoint")
+    assert missing_route.status_code == 404
+    missing_body = missing_route.json()
+    assert missing_body["error"]["code"] == "RESOURCE_NOT_FOUND"
+    assert missing_body["error"]["request_id"]
+
+    wrong_method = await api_client.delete("/health/live")
+    assert wrong_method.status_code == 405
+    assert wrong_method.json()["error"]["code"] == "METHOD_NOT_ALLOWED"
+
+    # Additional cron endpoints also enforce bearer secret and complete idempotently
+    for cron_path in (
+        "/api/v1/system/cron/ingest-air-quality",
+        "/api/v1/system/cron/evaluate-alerts",
+    ):
+        assert (await api_client.get(cron_path)).status_code == 403
+        cron_ok = await api_client.get(
+            cron_path,
+            headers={"Authorization": "Bearer test-cron-secret-value-123456"},
+        )
+        assert cron_ok.status_code == 200
+        assert cron_ok.json()["data"]["status"] == "completed"

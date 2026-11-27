@@ -1,3 +1,7 @@
+/**
+ * Typed `/api/v1/air-quality/*` and `/api/v1/weather/*` telemetry client methods.
+ */
+
 import { apiRequest } from "@/lib/api/client";
 import type {
   AirQualityForecast,

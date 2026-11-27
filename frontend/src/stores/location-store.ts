@@ -1,3 +1,7 @@
+/**
+ * Lightweight Zustand store holding ephemeral active city and AQI standard selection.
+ */
+
 import { create } from "zustand";
 import type { AQIStandard } from "@/types/api";
 

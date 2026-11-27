@@ -1,3 +1,5 @@
+"""Deterministic environmental impact calculators, reference factors, and action-log endpoints."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -36,6 +38,7 @@ AppSettings = Annotated[Settings, Depends(get_app_settings)]
 Meta = Annotated[ResponseMeta, Depends(get_response_meta)]
 Principal = Annotated[AuthenticatedPrincipal, Depends(require_authenticated_user)]
 
+
 @router.get("/factors", response_model=ApiResponse[list[EmissionFactorSchema]])
 async def list_emission_factors_endpoint(
     db: Database,
@@ -46,6 +49,7 @@ async def list_emission_factors_endpoint(
     service = ImpactEngineService(session=db, settings=settings)
     factors = await service.list_emission_factors(category=category)
     return ApiResponse(data=factors, meta=meta)
+
 
 @router.post("/calculate", response_model=ApiResponse[ImpactEstimateSchema])
 async def calculate_impact_endpoint(
@@ -69,6 +73,7 @@ async def calculate_impact_endpoint(
         meta=meta,
     )
 
+
 @router.post(
     "/actions",
     status_code=201,
@@ -87,6 +92,7 @@ async def log_user_action_endpoint(
     logged = await service.log_user_action(user_id=principal.user_id, payload=payload)
     return ApiResponse(data=logged, meta=meta)
 
+
 @router.get("/summary", response_model=ApiResponse[ImpactSummarySchema])
 async def get_impact_summary_endpoint(
     principal: Principal,
@@ -97,6 +103,7 @@ async def get_impact_summary_endpoint(
     service = ImpactEngineService(session=db, settings=settings)
     summary = await service.get_user_summary(user_id=principal.user_id)
     return ApiResponse(data=summary, meta=meta)
+
 
 @router.get("/history", response_model=ApiResponse[list[LoggedUserActionSchema]])
 async def get_impact_history_endpoint(

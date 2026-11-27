@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Smart pollution alert rule builder, quiet-hours configuration, and notification inbox.
+ */
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";

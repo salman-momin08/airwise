@@ -1,3 +1,5 @@
+"""Stale-aware Redis and bounded in-memory telemetry caching."""
+
 from __future__ import annotations
 
 import asyncio
@@ -22,11 +24,13 @@ DEFAULT_FRESH_TTL_SECONDS = 900
 DEFAULT_STALE_BACKUP_TTL_SECONDS = 12 * 3600
 MAX_LOCAL_CACHE_ENTRIES = 512
 
+
 @dataclass
 class _MemoryCacheItem:
     raw_json: str
     fresh_until: float
     stale_until: float
+
 
 class StaleAwareTelemetryCache:
     """Redis-backed telemetry cache with explicit stale-backup retention.
@@ -42,12 +46,27 @@ class StaleAwareTelemetryCache:
         self._redis_loop: asyncio.AbstractEventLoop | None = None
         self._redis_backoff_until: float = 0.0
 
+    @property
+    def local_entry_count(self) -> int:
+        """Return the current number of bounded in-memory cache items."""
+        return len(self._memory)
+
     def clear_local(self) -> None:
+        """Clear in-memory cache entries and reset Redis backoff state."""
         self._memory.clear()
         self._redis_backoff_until = 0.0
         self._redis_client = None
         self._redis_url_cached = None
         self._redis_loop = None
+
+    async def aclose(self) -> None:
+        """Close the shared Redis client connection pool on application shutdown."""
+        client = self._redis_client
+        self._redis_client = None
+        self._redis_url_cached = None
+        self._redis_loop = None
+        if client is not None:
+            await client.aclose()
 
     def _get_redis(self) -> Redis | None:
         settings = get_settings()
@@ -170,5 +189,6 @@ class StaleAwareTelemetryCache:
         entry = self._memory.get(key)
         if entry is not None:
             entry.fresh_until = time.monotonic() - 1.0
+
 
 telemetry_cache = StaleAwareTelemetryCache()

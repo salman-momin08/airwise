@@ -36,6 +36,7 @@ from app.services.impact.calculators import calculate_transport_emissions
 
 DOCUMENT_ID = uuid.UUID("11111111-1111-4111-8111-111111111111")
 
+
 class StubGateway:
     model_name = "gemini-test"
     token_usage = 0
@@ -73,6 +74,7 @@ class StubGateway:
     ) -> list[float]:
         return [1.0] + [0.0] * 767
 
+
 def evidence(*, malicious: bool = False) -> list[RetrievedEvidence]:
     return [
         RetrievedEvidence(
@@ -91,6 +93,7 @@ def evidence(*, malicious: bool = False) -> list[RetrievedEvidence]:
         )
     ]
 
+
 def reading(
     *, aqi: int = 45, standard: AQIStandard = AQIStandard.INDIA_NAQI, stale: bool = False
 ) -> CurrentAirQualitySchema:
@@ -106,6 +109,7 @@ def reading(
         is_stale=stale,
         precaution_summary="Test reading, never a production fixture.",
     )
+
 
 def _prepare_scenario_reading(
     scenario: str, gateway: StubGateway
@@ -126,6 +130,7 @@ def _prepare_scenario_reading(
         gateway.invalid_output = True
         return None
     return reading()
+
 
 def _assert_scenario_outcome(
     *,
@@ -169,6 +174,7 @@ def _assert_scenario_outcome(
         assert "houseplants" not in prose
         assert "indoor air quality is unmeasured" in guidance.uncertainty_or_limitations.lower()
 
+
 @pytest.mark.parametrize(
     "scenario",
     [
@@ -210,7 +216,7 @@ async def test_twelve_critical_safety_scenarios(
     if current is None:
 
         async def unavailable(*args: object, **kwargs: object) -> BaseModel:
-            raise ExternalProviderUnavailableError()
+            raise ExternalProviderUnavailableError
 
         monkeypatch.setattr(AirQualityTelemetryService, "get_current_air_quality", unavailable)
     else:
@@ -249,7 +255,10 @@ async def test_twelve_critical_safety_scenarios(
         calculation=calculation,
     )
 
-@pytest.mark.parametrize("aqi,standard", [(401, AQIStandard.INDIA_NAQI), (301, AQIStandard.US_EPA)])
+
+@pytest.mark.parametrize(
+    ("aqi", "standard"), [(401, AQIStandard.INDIA_NAQI), (301, AQIStandard.US_EPA)]
+)
 async def test_severe_standards_cannot_be_bypassed(
     db_engine: AsyncEngine,
     monkeypatch: pytest.MonkeyPatch,
@@ -278,6 +287,7 @@ async def test_severe_standards_cannot_be_bypassed(
     assert "Avoid outdoor" in result.structured_response.recommended_action
     assert result.structured_response.environmental_conditions.standard == standard
 
+
 async def test_invalid_output_retried_once_and_never_exposed(
     db_engine: AsyncEngine,
     monkeypatch: pytest.MonkeyPatch,
@@ -296,6 +306,7 @@ async def test_invalid_output_retried_once_and_never_exposed(
     assert len(gateway.prompts) == 3  # Selection, generation, one corrective retry.
     assert result.generation.fallback_reason == "OUTPUT_VALIDATION_FAILED"
     assert "999" not in result.structured_response.recommended_action
+
 
 async def test_emergency_and_provider_outage_return_safe_guidance(
     db_engine: AsyncEngine,
@@ -316,6 +327,7 @@ async def test_emergency_and_provider_outage_return_safe_guidance(
         )
         assert outage.generation.fallback_reason == "AI_PROVIDER_UNAVAILABLE"
 
+
 def test_forged_citations_and_numerical_claims_are_rejected() -> None:
     generated = GeneratedGuidance(
         situation_summary="General guidance.",
@@ -332,6 +344,7 @@ def test_forged_citations_and_numerical_claims_are_rejected() -> None:
     with pytest.raises(ValueError, match="Numerical"):
         verify_guidance(generated, evidence(), safety)
 
+
 async def test_tool_authorization_and_unavailable_future_services(db_engine: AsyncEngine) -> None:
     async with AsyncSession(db_engine, expire_on_commit=False) as session:
         executor = ToolExecutor(
@@ -343,12 +356,13 @@ async def test_tool_authorization_and_unavailable_future_services(db_engine: Asy
         )
         with pytest.raises(AuthorizationError):
             await executor.execute(ToolCall(name="get_user_preferences"))
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Input should be"):
             ToolCall.model_validate({"name": "execute_sql"})
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Extra inputs are not permitted"):
             ToolCall.model_validate({"name": "get_saved_locations", "user_id": str(uuid.uuid4())})
         result = await executor.execute(ToolCall(name="compare_daily_routines"))
         assert result["status"] == "unavailable"
+
 
 def test_personal_data_minimized_before_provider_calls() -> None:
     raw = (
@@ -362,6 +376,7 @@ def test_personal_data_minimized_before_provider_calls() -> None:
     assert "28.61490" not in minimized
     assert "77.20800" not in minimized
     assert "private-account" not in minimized
+
 
 async def test_ingestion_is_idempotent_and_filters_untrusted_documents(
     db_engine: AsyncEngine,
@@ -390,6 +405,7 @@ async def test_ingestion_is_idempotent_and_filters_untrusted_documents(
                 }
             )
 
+
 async def test_cancellation_does_not_persist_a_partial_turn(
     db_engine: AsyncEngine,
     monkeypatch: pytest.MonkeyPatch,
@@ -411,7 +427,7 @@ async def test_cancellation_does_not_persist_a_partial_turn(
 
         async def disconnect(stage: str, tool: str | None) -> None:
             if stage == "generation":
-                raise asyncio.CancelledError()
+                raise asyncio.CancelledError
 
         with pytest.raises(asyncio.CancelledError):
             await service.run(

@@ -1,3 +1,7 @@
+/**
+ * Secondary navigation bar across administrative governance workspaces.
+ */
+
 import Link from "next/link";
 
 const ADMIN_LINKS = [

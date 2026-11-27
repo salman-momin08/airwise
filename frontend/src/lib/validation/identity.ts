@@ -1,3 +1,7 @@
+/**
+ * Zod schemas validating authentication, profile, consented preferences, and saved locations.
+ */
+
 import { COMMUTE_MODE_VALUES } from "@/lib/constants/commute-modes";
 import { z } from "zod";
 

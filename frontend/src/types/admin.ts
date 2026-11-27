@@ -1,3 +1,7 @@
+/**
+ * TypeScript DTO contracts for administrative governance, audit logs, and AI monitoring.
+ */
+
 export type AdminAssignableRole = "user" | "moderator" | "admin";
 
 export interface AdminOverview {

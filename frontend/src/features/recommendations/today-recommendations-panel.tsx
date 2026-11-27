@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Exposure-first daily recommendation cards across all 5 environmental categories with feedback.
+ */
+
 import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

@@ -1,3 +1,5 @@
+"""Typed application configuration, Redis URL normalization, and production safety invariants."""
+
 from __future__ import annotations
 
 import os
@@ -15,11 +17,13 @@ _REPO_ROOT_DIR = _BACKEND_DIR.parent
 VALID_REDIS_SCHEMES = ("redis://", "rediss://", "unix://")
 _DISABLED_REDIS_SENTINELS = frozenset({"", "none", "null", "false", "disabled"})
 
+
 def _strip_wrapping_quotes(value: str) -> str:
     trimmed = value.strip()
     if len(trimmed) >= 2 and trimmed[0] == trimmed[-1] and trimmed[0] in {'"', "'"}:
         return trimmed[1:-1].strip()
     return trimmed
+
 
 def _upgrade_managed_tls_scheme(url: str) -> str:
     """Upstash endpoints require TLS (`rediss://`); plain `redis://` drops immediately."""
@@ -29,6 +33,7 @@ def _upgrade_managed_tls_scheme(url: str) -> str:
     if hostname.endswith(".upstash.io"):
         return "rediss://" + url.removeprefix("redis://")
     return url
+
 
 def normalize_redis_url(raw: str) -> str:
     """Normalize common Vercel/Upstash paste variants (quotes, whitespace, redis-cli, TLS)."""
@@ -53,10 +58,15 @@ def normalize_redis_url(raw: str) -> str:
             return _upgrade_managed_tls_scheme(extracted)
     return _upgrade_managed_tls_scheme(cleaned)
 
+
 def is_valid_redis_url(url: str) -> bool:
+    """Return True when the normalized Redis URL uses a supported transport scheme."""
     return bool(url) and url.startswith(VALID_REDIS_SCHEMES)
 
+
 class Settings(BaseSettings):
+    """Validated runtime settings loaded from environment variables or local `.env` files."""
+
     model_config = SettingsConfigDict(
         env_file=(_REPO_ROOT_DIR / ".env", _BACKEND_DIR / ".env", ".env"),
         env_file_encoding="utf-8",
@@ -149,8 +159,16 @@ class Settings(BaseSettings):
                 )
             if self.auth_secret_key.startswith("dev-only"):
                 raise ValueError("Production AUTH_SECRET_KEY must not use the dev placeholder.")
+            if "airwise_dev_only" in self.database_url:
+                raise ValueError("Production DATABASE_URL must not use the dev placeholder.")
+            if not self.metrics_internal_token:
+                raise ValueError(
+                    "METRICS_INTERNAL_TOKEN must be configured when APP_ENV=production."
+                )
         return self
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    """Return the cached singleton application settings instance."""
     return Settings()

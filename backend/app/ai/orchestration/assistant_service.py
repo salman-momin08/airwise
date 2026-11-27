@@ -1,3 +1,5 @@
+"""Grounded Copilot orchestration pipeline combining allowlisted tools, RAG, and guardrails."""
+
 from __future__ import annotations
 
 import asyncio
@@ -38,6 +40,7 @@ from app.schemas.assistant import (
 logger = structlog.get_logger(__name__)
 StatusCallback = Callable[[str, str | None], Awaitable[None]]
 
+
 def classify_intent(message: str) -> str:
     lowered = message.lower()
     for intent, keywords in (
@@ -50,6 +53,7 @@ def classify_intent(message: str) -> str:
         if any(keyword in lowered for keyword in keywords):
             return intent
     return "education"
+
 
 def safe_fallback(
     tools: ToolExecutor, safety: SafetyEvaluation, *, reason: str
@@ -115,6 +119,7 @@ def safe_fallback(
             {item.reference.document_id: item.reference for item in tools.evidence}.values()
         ),
     )
+
 
 class AssistantService:
     def __init__(

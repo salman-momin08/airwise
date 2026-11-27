@@ -1,4 +1,7 @@
+"""Typed domain exception hierarchy translated centrally into `/api/v1/` error envelopes."""
+
 from __future__ import annotations
+
 
 class AirWiseError(Exception):
     """Base domain exception mapped centrally to the /api/v1 error envelope."""
@@ -9,6 +12,7 @@ class AirWiseError(Exception):
         self.message = message
         self.status_code = status_code
 
+
 class AuthenticationError(AirWiseError):
     def __init__(
         self,
@@ -16,6 +20,7 @@ class AuthenticationError(AirWiseError):
         code: str = "AUTH_REQUIRED",
     ) -> None:
         super().__init__(code=code, message=message, status_code=401)
+
 
 class AuthorizationError(AirWiseError):
     def __init__(
@@ -25,9 +30,11 @@ class AuthorizationError(AirWiseError):
     ) -> None:
         super().__init__(code=code, message=message, status_code=403)
 
+
 class ConflictError(AirWiseError):
     def __init__(self, message: str = "Resource conflict.") -> None:
         super().__init__(code="CONFLICT", message=message, status_code=409)
+
 
 class RateLimitExceededError(AirWiseError):
     def __init__(
@@ -37,9 +44,11 @@ class RateLimitExceededError(AirWiseError):
     ) -> None:
         super().__init__(code=code, message=message, status_code=429)
 
+
 class ResourceNotFoundError(AirWiseError):
     def __init__(self, message: str = "Requested resource was not found.") -> None:
         super().__init__(code="RESOURCE_NOT_FOUND", message=message, status_code=404)
+
 
 class ExternalProviderUnavailableError(AirWiseError):
     def __init__(

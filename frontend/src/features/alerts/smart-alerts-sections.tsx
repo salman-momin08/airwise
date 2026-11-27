@@ -1,3 +1,7 @@
+/**
+ * Presentational inbox and active-rules sections for smart AQI alerts.
+ */
+
 import type {
   AlertRule,
   AlertType,

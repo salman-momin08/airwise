@@ -1,3 +1,5 @@
+"""Pydantic v2 DTOs for deterministic transport, energy, filtration, and exposure calculators."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -17,6 +19,7 @@ ActionTypeLiteral = Literal[
     "appliance_load_reduction",
     "smoke_free_cooking_ventilation",
 ]
+
 
 class TransportImpactRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -53,6 +56,7 @@ class TransportImpactRequest(BaseModel):
             )
         return self
 
+
 class HouseholdEnergyImpactRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -74,6 +78,7 @@ class HouseholdEnergyImpactRequest(BaseModel):
             self.grid_region_code = "india_cea_grid_avg"
         return self
 
+
 class IndoorFiltrationImpactRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -85,6 +90,7 @@ class IndoorFiltrationImpactRequest(BaseModel):
     penetration_factor: float = Field(default=0.8, ge=0, le=1.0)
     deposition_rate_per_hour: float = Field(default=0.2, ge=0, le=5.0)
     has_active_indoor_smoke: bool = False
+
 
 class RelativeExposureImpactRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -100,6 +106,7 @@ class RelativeExposureImpactRequest(BaseModel):
         max_length=300,
     )
 
+
 ImpactCalculationRequest = Annotated[
     TransportImpactRequest
     | HouseholdEnergyImpactRequest
@@ -107,6 +114,7 @@ ImpactCalculationRequest = Annotated[
     | RelativeExposureImpactRequest,
     Field(discriminator="calculator_type"),
 ]
+
 
 class ExposureScreeningMetaSchema(BaseModel):
     evaluated: bool = False
@@ -120,6 +128,7 @@ class ExposureScreeningMetaSchema(BaseModel):
     exposure_warning: str | None = None
     safer_commute_fallback: str | None = None
     indoor_air_measured: bool = False
+
 
 class ImpactEstimateSchema(BaseModel):
     id: UUID | None = None
@@ -136,6 +145,7 @@ class ImpactEstimateSchema(BaseModel):
     calculated_at: str
     exposure_screening: ExposureScreeningMetaSchema | None = None
 
+
 class EmissionFactorSchema(BaseModel):
     mode_or_region_code: str
     category: str
@@ -148,6 +158,7 @@ class EmissionFactorSchema(BaseModel):
     source_reference: str
     effective_year: int
 
+
 class LogUserActionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -158,6 +169,7 @@ class LogUserActionRequest(BaseModel):
     occurred_at: datetime | None = None
     calculation: ImpactCalculationRequest | None = None
 
+
 class LoggedUserActionSchema(BaseModel):
     id: UUID
     action_type: str
@@ -167,6 +179,7 @@ class LoggedUserActionSchema(BaseModel):
     is_self_reported: Literal[True] = True
     occurred_at: datetime
     impact_estimate: ImpactEstimateSchema | None = None
+
 
 class ImpactSummarySchema(BaseModel):
     total_logged_actions: int

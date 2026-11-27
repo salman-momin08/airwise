@@ -1,3 +1,5 @@
+"""Deterministic environmental safety rule engine enforcing exposure-over-emissions hierarchy."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -5,6 +7,7 @@ from dataclasses import dataclass
 from app.schemas.air_quality import AirQualityForecastSchema, CurrentAirQualitySchema
 from app.schemas.weather import CurrentWeatherSchema
 from app.services.air_quality.aqi_calculator import AQIStandard, PollutantCode
+
 
 @dataclass(frozen=True)
 class EnvironmentalRuleContext:
@@ -27,6 +30,7 @@ class EnvironmentalRuleContext:
     uncertainty_disclaimer: str
     cleaner_window_note: str | None
 
+
 def extract_pm25_ug_m3(current: CurrentAirQualitySchema | None) -> float | None:
     if current is None:
         return None
@@ -34,6 +38,7 @@ def extract_pm25_ug_m3(current: CurrentAirQualitySchema | None) -> float | None:
         if item.pollutant == PollutantCode.PM25 and item.unit == "ug/m3":
             return item.concentration
     return None
+
 
 def find_cleanest_forecast_window(forecast: AirQualityForecastSchema | None) -> str | None:
     if forecast is None or not forecast.points:
@@ -44,9 +49,9 @@ def find_cleanest_forecast_window(forecast: AirQualityForecastSchema | None) -> 
     best = min(valid_points, key=lambda pt: pt.aqi if pt.aqi is not None else 9999)
     hour_str = best.forecast_for.strftime("%H:%M UTC")
     return (
-        f"Lowest forecast AQI window in next 24h: ~{best.aqi} "
-        f"({best.category}) around {hour_str}."
+        f"Lowest forecast AQI window in next 24h: ~{best.aqi} ({best.category}) around {hour_str}."
     )
+
 
 def _classify_severity_and_blocks(
     *,
@@ -68,6 +73,7 @@ def _classify_severity_and_blocks(
     if aqi >= 101:
         return "moderate", vulnerable, vulnerable
     return "good", False, False
+
 
 def _build_ventilation_guidance(
     *,
@@ -92,21 +98,19 @@ def _build_ventilation_guidance(
         return (
             "Keep windows closed during overnight/morning thermal-inversion stagnation and peak "
             "traffic hours. Only ventilate briefly (10-15 minutes) during a verified afternoon "
-            "dip if outdoor haze visibly clears."
-            + cooking_clause
+            "dip if outdoor haze visibly clears." + cooking_clause
         )
     if severity_tier == "unavailable" or is_stale:
         return (
             "Live outdoor AQI is unavailable or stale-avoid assuming outdoor air is currently "
             "clean. Keep ventilation conservative away from traffic corridors until fresh "
-            "station readings resume."
-            + cooking_clause
+            "station readings resume." + cooking_clause
         )
     return (
         "Outdoor air quality permits 15-25 minutes of cross-ventilation away from peak "
-        "roadside traffic hours."
-        + cooking_clause
+        "roadside traffic hours." + cooking_clause
     )
+
 
 def _build_filtration_guidance(*, has_hepa_purifier: bool, budget_tier: str | None) -> str:
     if has_hepa_purifier:
@@ -128,9 +132,8 @@ def _build_filtration_guidance(*, has_hepa_purifier: bool, budget_tier: str | No
         "purifier (avoid ozone/ionizer devices; houseplants do not meaningfully remove PM2.5)."
     )
 
-def _build_uncertainty_disclaimer(
-    *, is_available: bool, is_stale: bool, is_fixture: bool
-) -> str:
+
+def _build_uncertainty_disclaimer(*, is_available: bool, is_stale: bool, is_fixture: bool) -> str:
     parts = [
         "Indoor air quality is unmeasured unless a dedicated indoor PM2.5 sensor is linked.",
         (
@@ -153,6 +156,7 @@ def _build_uncertainty_disclaimer(
     if is_fixture:
         parts.append("Environmental snapshot comes from an explicitly labeled development fixture.")
     return " ".join(parts)
+
 
 def evaluate_environmental_rules(
     *,

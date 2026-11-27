@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Accessible Argon2id/cookie-session login form with inline Zod validation.
+ */
+
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";

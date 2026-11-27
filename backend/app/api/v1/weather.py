@@ -1,3 +1,5 @@
+"""Current meteorological and thermal-inversion dispersion endpoints."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -13,6 +15,7 @@ from app.schemas.weather import CurrentWeatherSchema
 from app.services.weather.weather_service import WeatherTelemetryService
 
 router = APIRouter(prefix="/weather", tags=["weather"])
+
 
 @router.get("/current", response_model=ApiResponse[CurrentWeatherSchema])
 async def get_current_weather(

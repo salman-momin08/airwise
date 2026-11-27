@@ -1,3 +1,7 @@
+/**
+ * India NAQI and US EPA category metadata, accessible badge palettes, and labels.
+ */
+
 import type { AQIStandard } from "@/types/api";
 
 export interface AQISeverityStyle {

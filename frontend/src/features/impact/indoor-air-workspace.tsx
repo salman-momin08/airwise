@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Honest unmeasured indoor air guidance and room-volume HEPA CADR calculator workspace.
+ */
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";

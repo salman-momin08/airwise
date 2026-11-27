@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Secondary navigation bar across profile, locations, preferences, and privacy settings.
+ */
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

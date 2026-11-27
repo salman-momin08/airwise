@@ -1,7 +1,11 @@
+"""SSRF-guarded outbound HTTPX client pool, retry policy, and provider circuit breaker."""
+
 from __future__ import annotations
 
 import asyncio
+import math
 import time
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlparse
 
@@ -22,6 +26,7 @@ ALLOWED_EXTERNAL_ENVIRONMENTAL_HOSTS: frozenset[str] = frozenset(
     }
 )
 
+
 def assert_allowed_https_url(url: str) -> None:
     """Outbound SSRF defense: permit only allowlisted HTTPS environmental API hosts."""
     parsed = urlparse(url)
@@ -33,6 +38,7 @@ def assert_allowed_https_url(url: str) -> None:
             code="SSRF_HOST_BLOCKED",
             message="Outbound environmental request blocked by host allowlist.",
         )
+
 
 class ProviderCircuitBreaker:
     """Lightweight per-provider circuit breaker preventing cascading upstream timeouts."""
@@ -79,6 +85,7 @@ class ProviderCircuitBreaker:
         self._failure_count = 0
         self._opened_at = None
 
+
 _shared_http_client: httpx.AsyncClient | None = None
 _shared_http_loop: asyncio.AbstractEventLoop | None = None
 _DEFAULT_HTTP_TIMEOUT = httpx.Timeout(connect=3.0, read=8.0, write=5.0, pool=3.0)
@@ -87,6 +94,7 @@ _DEFAULT_HTTP_LIMITS = httpx.Limits(
     max_connections=50,
     keepalive_expiry=30.0,
 )
+
 
 def _get_shared_http_client() -> httpx.AsyncClient:
     global _shared_http_client, _shared_http_loop
@@ -104,6 +112,7 @@ def _get_shared_http_client() -> httpx.AsyncClient:
         _shared_http_loop = current_loop
     return _shared_http_client
 
+
 async def close_shared_http_clients() -> None:
     """Close shared outbound connection pool on application shutdown."""
     global _shared_http_client, _shared_http_loop
@@ -112,6 +121,26 @@ async def close_shared_http_clients() -> None:
     _shared_http_loop = None
     if client is not None and not client.is_closed:
         await client.aclose()
+
+
+def _parse_retry_after_seconds(raw_value: str | None, default: float = 1.0) -> float:
+    """Parse an RFC 9110 `Retry-After` header (delta-seconds or HTTP-date) safely."""
+    if not raw_value:
+        return default
+    cleaned = raw_value.strip()
+    try:
+        parsed = float(cleaned)
+        if math.isfinite(parsed) and parsed >= 0.0:
+            return parsed
+    except ValueError:
+        try:
+            dt = parsedate_to_datetime(cleaned)
+            delta = dt.timestamp() - time.time()
+            return max(0.0, delta)
+        except (TypeError, ValueError, OverflowError):
+            return default
+    return default
+
 
 async def _execute_resilient_get(
     client: httpx.AsyncClient,
@@ -126,7 +155,7 @@ async def _execute_resilient_get(
         try:
             response = await client.get(url, params=params, headers=headers)
             if response.status_code == 429:
-                retry_after = float(response.headers.get("Retry-After", "1.0"))
+                retry_after = _parse_retry_after_seconds(response.headers.get("Retry-After"))
                 if attempt < max_attempts and retry_after <= 2.0:
                     await asyncio.sleep(retry_after)
                     continue
@@ -167,7 +196,8 @@ async def _execute_resilient_get(
         host=urlparse(url).hostname,
         error=type(last_exc).__name__,
     )
-    raise ExternalProviderUnavailableError()
+    raise ExternalProviderUnavailableError
+
 
 async def fetch_json_with_resilience(
     url: str,

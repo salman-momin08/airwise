@@ -1,3 +1,7 @@
+/**
+ * Meteorological temperature, wind, humidity, and thermal-inversion dispersion card.
+ */
+
 import type { CurrentWeather } from "@/types/api";
 
 interface WeatherContextCardProps {

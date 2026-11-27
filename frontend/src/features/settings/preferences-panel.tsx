@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Explicitly consented household sensitivity, HEPA purifier, commute, and schedule preferences form.
+ */
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
